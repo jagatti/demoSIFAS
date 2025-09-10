@@ -1,9 +1,11 @@
+
 <!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>自作リズムゲーム</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;background:#0f172a;overflow:hidden;display:flex;justify-content:center;align-items:center;font-family:system-ui;}
   #rotateMsg{position:fixed;inset:0;z-index:10;background:#000;color:#fff;display:none;justify-content:center;align-items:center;font-size:2rem;}
@@ -326,10 +328,19 @@ const noteTravelSec = noteDuration / 60;
   
 // 効果音を事前にバッファ化
 async function loadTapSE() {
-  audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-  const response = await fetch('tap.wav');
-  const arrayBuffer = await response.arrayBuffer();
-  tapBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  // AudioContextが既に作成済みならresume
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // ここでresumeしておく（ユーザー操作時は必ず許可される）
+  await audioContext.resume();
+
+  // 効果音ロード
+  if (!tapBuffer) {
+    const response = await fetch('tap.wav');
+    const arrayBuffer = await response.arrayBuffer();
+    tapBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  }
 }
 
 //
@@ -448,15 +459,7 @@ function triggerSPVisual(){ spFlashTimer=10; spRingTimer=spRingSpeed; }
 function updateACOnTap(pointsWithCombo, nowTime) {
   noteCounter++;
   acList.forEach(ac => {
-    // --- AC開始時バフ抽選 ---
-    if (Math.abs(nowTime - (ac.startTime + noteTravelSec)) < 0.5 && ac.state === "waiting")  {
-      ac.state = "active";
-      if(Math.random() < 0.3){
-        permanentScoreBuff++;
-        skillHistory.unshift({text:"[アピール増加永続 5%]", life:180});
-        if(skillHistory.length>5) skillHistory.pop();
-      }
-    }
+    
     if (ac.state === "active" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec) {
       if (ac.type === "score") {
         ac.tapScore += pointsWithCombo;
@@ -524,16 +527,16 @@ function updateACOnSPUse(nowTime, spScore) {
   
 // ユーザー操作時に一度だけ呼ぶ
 window.addEventListener('touchstart', () => {
-  if (!audioContext) loadTapSE();
+  loadTapSE(); // resumeも含む
 }, { once: true });
 window.addEventListener('mousedown', () => {
-  if (!audioContext) loadTapSE();
+  loadTapSE();
 }, { once: true });
 
   
 // --- 基本スコアの計算を一律30000・上限50000に ---
 function calcTapBase(){
-  let baseRaw = 30000; // 1タップごとに一律
+  let baseRaw = 30000; 
   if (appealBoostNotes > 0) {
     baseRaw = Math.ceil(baseRaw * 1.12);
     appealBoostNotes--;
@@ -558,7 +561,7 @@ function calcTapScoreAndLabel(dist, baseRaw){
 }
 
 // --- スコア加算処理 ---
-function awardHit(target, points, label, resetCombo, baseRaw){
+function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
   playTapSE();
   let nowTime = bgm.currentTime || 0;
   let acBuff = 1.0;
@@ -585,12 +588,24 @@ function awardHit(target, points, label, resetCombo, baseRaw){
   addPopup(String(pointsWithCombo), midX, midY, 500, 'score');
   if(judgeCount[label] !== undefined) judgeCount[label]++;
   if(Math.random() < 0.33){
-    skillActivationCount++;
-    const skillType = Math.floor(Math.random()*3);
-    if(skillType===0){
-      score += baseRaw;
-      skillHistory.unshift({text:`[ボルテージ獲得 ${baseRaw}]`, life:180});
-    }else if(skillType===1){
+  skillActivationCount++;
+  const skillType = Math.floor(Math.random()*3);
+  if(skillType===0){
+    // --- ボルテージ獲得(バフ適用版) ---
+    let voltage = baseRaw;
+    if (appealBoostNotes > 0) voltage = Math.ceil(voltage * 1.12);
+    if (spBoostTimer > 0) voltage = Math.floor(voltage * 1.1);
+    const comboBonus = getComboBonus(combo + 1);
+    voltage = Math.floor(voltage * comboBonus);
+    let nowTime = bgm.currentTime || 0;
+    if (isACActiveByTime(nowTime) || isACClearedNowByTime(nowTime)) voltage = Math.floor(voltage * 1.1);
+    if (spScoreBuffNotes > 0) voltage = Math.floor(voltage * 1.1);
+    let permanentBuff = 1 + permanentScoreBuff * 0.05;
+    voltage = Math.floor(voltage * permanentBuff);
+    if (voltage > 50000) voltage = 50000;
+    score += voltage;
+    skillHistory.unshift({text:`[ボルテージ獲得 ${voltage}]`, life:180});
+  　}else if(skillType===1){
       spValue = Math.min(SP_MAX, spValue+540);
       skillHistory.unshift({text:`[SPゲージ獲得 9%]`, life:180});
     }else{
@@ -599,6 +614,19 @@ function awardHit(target, points, label, resetCombo, baseRaw){
     }
     if(skillHistory.length>5) skillHistory.pop();
   }
+
+  // ★★ AC開始バフ抽選（STARTノーツ到達時のみ） ★★
+  for(const ac of acList){
+    if(ac.state === "waiting" && chartIdx === ac.startIdx){
+      ac.state = "active";
+      if(Math.random() < 0.3){
+        permanentScoreBuff++;
+        skillHistory.unshift({text:"[アピール増加永続 5%]", life:180});
+        if(skillHistory.length>5) skillHistory.pop();
+      }
+    }
+  }
+
   updateACOnTap(pointsWithCombo, nowTime);
 }
   
@@ -628,7 +656,7 @@ function judgeNotesGlobal(){
     const baseRaw = calcTapBase();
     const {points,label,reset}=calcTapScoreAndLabel(bestDist, baseRaw);
     if(label!=='MISS'){
-      awardHit(bestTarget, points, label, reset, baseRaw);
+      awardHit(bestTarget, points, label, reset, baseRaw, notes[bestIdx].chartIdx);
       notes.splice(bestIdx,1);
       return true;
     }else{ return false; }
@@ -797,7 +825,7 @@ function update(){
   if (gameState === "playing" && !bgm.paused) {
     const bgmNowSec = bgm.currentTime;
     while (chartIndex < notesChart.length && bgmNowSec >= notesChart[chartIndex].time) {
-      spawnNote(notesChart[chartIndex].side, chartIndex); // ←ここでchartIndexを渡す！
+      spawnNote(notesChart[chartIndex].side, chartIndex); 
       totalNotesSpawned++;
       chartIndex++;
     }
@@ -972,44 +1000,6 @@ function drawACMissionNotice(){
   ctx.restore();
 }
 
-// --- 進捗バー ピンクAC区間（time基準・修正版） ---
-function drawProgressBarAC(){
-  const barMarginLeft = 20;
-  const barMarginRight = 200;
-  const barWidth = Math.max(140, cvs.width - barMarginLeft - barMarginRight);
-  const barHeight = 12;
-  const x = barMarginLeft;
-  const y = 10;
-  const lastTime = notesChart[notesChart.length-1].time;
-  // ACピンク区間（下地）
-  for(const ac of acList){
-    const startRatio = (ac.startTime + noteTravelSec) / (lastTime + noteTravelSec);
-    const endRatio = (ac.endTime + noteTravelSec) / (lastTime + noteTravelSec);
-    ctx.fillStyle = "#ff69b4";
-    ctx.globalAlpha = 0.35;
-    ctx.fillRect(x + barWidth*startRatio, y, barWidth*(endRatio-startRatio), barHeight);
-    ctx.globalAlpha = 1;
-    // 進捗（クリア時黄色、未クリア白）を上に細く重ねて表示
-    if(ac.state === "active" || ac.state === "cleared"){
-      let nowTime = bgm.currentTime || 0;
-      if(nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec && ac.target > 0){
-        let progressRatio = ac.type === "score"
-          ? Math.min(1, (ac.progress || 0) / ac.target)
-          : Math.min(1, (ac.progress || 0) / ac.target);
-        ctx.fillStyle = ac.cleared ? "#FFD700" : "#fff";
-        ctx.globalAlpha = 0.90;
-        ctx.fillRect(
-          x + barWidth*startRatio,
-          y-5,
-          barWidth*(endRatio-startRatio)*progressRatio,
-          5
-        );
-        ctx.globalAlpha = 1;
-      }
-    }
-  }
-}
-
 // --- 以降は描画処理など ---
 function strokeRainbowText(text,x,y,font){
   ctx.textAlign='center'; ctx.font=font;
@@ -1029,21 +1019,55 @@ function strokeOrangeWhiteText(text,x,y,font){
   ctx.lineWidth=6; ctx.strokeStyle='#fff'; ctx.strokeText(text,x,y);
   ctx.fillStyle='#ffa500'; ctx.fillText(text,x,y);
 }
-function drawProgressBar(){
+  
+function drawProgressBarWithAC(){
   const barMarginLeft = 20;
   const barMarginRight = 200;
   const barWidth = Math.max(140, cvs.width - barMarginLeft - barMarginRight);
   const barHeight = 12;
   const x = barMarginLeft;
   const y = 10;
+
+  // 1. グレー下地
   ctx.fillStyle = '#4b5563';
   ctx.fillRect(x, y, barWidth, barHeight);
+
+  // 2. ピンクAC区間
+  let lastNoteTime = notesChart[notesChart.length-1]?.time || 0;
+  let fallbackSongLen = lastNoteTime + noteTravelSec + 3;
+  let songLen = (bgm.duration && !isNaN(bgm.duration) && bgm.duration > 1)
+    ? bgm.duration
+    : fallbackSongLen;
+  for(const ac of acList){
+    let startRatio = (ac.startTime + noteTravelSec) / songLen;
+    let endRatio   = (ac.endTime   + noteTravelSec) / songLen;
+    let width      = barWidth * (endRatio - startRatio);
+    if(isNaN(startRatio) || isNaN(endRatio) || width <= 0) continue;
+    ctx.fillStyle = "#ff69b4";
+    ctx.globalAlpha = 0.8;
+    ctx.fillRect(
+      x + barWidth * startRatio,
+      y,
+      width,
+      barHeight
+    );
+    ctx.globalAlpha = 1;
+  }
+
+  // 3. 水色進捗
+  let progress = 0;
+  if (bgm.duration && bgm.duration > 0) {
+    progress = Math.min(1, bgm.currentTime / bgm.duration);
+  }
   ctx.fillStyle = '#00e5ff';
-  ctx.fillRect(x, y, barWidth * progressDisplay, barHeight);
+  ctx.fillRect(x, y, barWidth * progress, barHeight);
+
+  // 4. 白枠
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 2;
   ctx.strokeRect(x, y, barWidth, barHeight);
 }
+  
 function drawSkillHistory(){
   const maxItems = 5;
   const lineH = Math.max(16, Math.round(R*0.6));
@@ -1150,12 +1174,12 @@ function drawPopups(){
 }
 function drawUI(){
   if(gameState!=="playing") return;
-  const cx=cvs.width - Math.max(40, Math.round(R*1.8));
+  const cx=cvs.width - Math.max(70, Math.round(R*2.7));
   ctx.textAlign='center'; ctx.fillStyle='#fff';
-  ctx.font=`bold ${Math.max(20,Math.round(R*1.0))}px system-ui`; ctx.fillText(`${combo}`, cx, Math.max(24,Math.round(R*1.0)));
-  ctx.font=`bold ${Math.max(10,Math.round(R*0.5))}px system-ui`; ctx.fillText('COMBO', cx, Math.max(40,Math.round(R*1.6)));
+  ctx.font=`bold ${Math.max(38,Math.round(R*1.7))}px system-ui`; ctx.fillText(`${combo}`, cx, Math.max(40,Math.round(R*1.4)));
+  ctx.font=`bold ${Math.max(20,Math.round(R*0.9))}px system-ui`; ctx.fillText('COMBO', cx, Math.max(70,Math.round(R*2.0)));
   ctx.textAlign='right'; ctx.font=`bold ${Math.max(16,Math.round(R*0.7))}px system-ui`;
-  ctx.fillText(`Score: ${score}`, cvs.width-12, cvs.height-16);
+  ctx.fillText(`SCORE: ${score}`, cvs.width-12, cvs.height-16);
 }
 function drawOverlays(){
   const f=popups.find(p=>p.type==='flash');
@@ -1189,6 +1213,73 @@ function drawACFailFlash(){
   }
 }
   
+  function drawSPBoostFrame() {
+  if (typeof spBoostTimer === 'undefined' || spBoostTimer <= 0) return;
+  const w = cvs.width, h = cvs.height;
+  const maxT = 240;
+  const fade = Math.max(0, Math.min(1, spBoostTimer / maxT));
+  const noteCount = 16;
+  const colors = [
+    "#ff4c4c", "#ffa500", "#ffe93a", "#4cff4c", "#39bfff", "#8b4cff", "#ff6cff",
+  ];
+
+  // グリッド状に音符を配置
+  for (let i = 0; i < noteCount; i++) {
+    // 基本位置
+    const gridX = ((i % 4) + 0.5) / 4 * w;
+    const gridY = ((Math.floor(i / 4) + 0.7) / 4) * h * 0.85 + h * 0.06;
+    const t = spBoostTimer;
+
+    // カクカク（階段状に変化する）動き
+    // ステップ周期
+    const stepPeriod = 28 + (i % 5) * 7;
+    const step = Math.floor((t + i * 13) / stepPeriod) % 4;
+
+    // カクカク位置ずれパターン
+    const stepTable = [
+      {dx: 0, dy: 0, angle: 0},
+      {dx: 5, dy: -4, angle: 0.13},
+      {dx: -4, dy: 5, angle: -0.12},
+      {dx: 3, dy: -2, angle: 0.09}
+    ];
+    const {dx, dy, angle} = stepTable[step];
+
+    const size = 20 + Math.sin(i * 2.3) * 3;
+
+    ctx.save();
+    ctx.globalAlpha = 0.19 * fade;
+    ctx.translate(gridX + dx, gridY + dy);
+    ctx.rotate(angle);
+
+    // 音符（8分音符風）
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.38, size * 0.26, 0, 0, Math.PI * 2);
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.shadowColor = "#fff";
+    ctx.shadowBlur = 9;
+    ctx.fill();
+
+    // 棒
+    ctx.beginPath();
+    ctx.moveTo(size * 0.13, -size * 0.05);
+    ctx.lineTo(size * 0.13, -size * 0.56);
+    ctx.lineWidth = size * 0.10;
+    ctx.strokeStyle = colors[i % colors.length];
+    ctx.lineCap = "round";
+    ctx.shadowBlur = 0;
+    ctx.stroke();
+
+    // 旗
+    ctx.beginPath();
+    ctx.moveTo(size * 0.13, -size * 0.56);
+    ctx.quadraticCurveTo(size * 0.40, -size * 0.63, size * 0.33, -size * 0.28);
+    ctx.lineWidth = size * 0.08;
+    ctx.strokeStyle = colors[i % colors.length];
+    ctx.stroke();
+
+    ctx.restore();
+  }
+} 
 // ★ 判定回数リザルト左下表示
 function drawJudgeCountsResult() {
   const baseX = 30;
@@ -1238,7 +1329,7 @@ function render(){
     ctx.fillRect(0,0,cvs.width,cvs.height);
   }
   
-  drawProgressBarAC();
+  drawProgressBarWithAC();
   drawTargets();
   drawNotes();
   drawHitRings();
@@ -1246,7 +1337,7 @@ function render(){
   drawPopups();
   drawUI();
   drawOverlays();
-  drawProgressBar();
+  drawSPBoostFrame();
   drawSkillHistory();
   drawACMissionNotice();
   drawACFailFlash();
@@ -1324,7 +1415,3 @@ function loop(){ update(); render(); requestAnimationFrame(loop); }
 </script>
 </body>
 </html>
-
-
-
-
