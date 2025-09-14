@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>自作リズムゲーム</title>
+<title>リズムアクション</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;background:#0f172a;overflow:hidden;display:flex;justify-content:center;align-items:center;font-family:system-ui;}
@@ -59,19 +59,19 @@ const acList = [
     startTime: 69.22,
     endTime: 72.61,
     type: "score",
-    target: 530000,
+    target: 750000,
     rewardScore: 1000000,
     rewardSP: 3600,
     state: "waiting",
     progress: 0,
     cleared: false,
-    desc: "スコアを53万獲得する",
+    desc: "スコアを75万獲得する",
     tapScore: 0,
     spScore: 0
   }
 ];
   
-// --- 必ずcvs/ctxなどの変数定義を最初に！ ---
+// --- 必須グローバル変数 ---
 const cvs = document.getElementById('game');
 const ctx = cvs.getContext('2d');
 const rotateMsg = document.getElementById('rotateMsg');
@@ -84,7 +84,7 @@ bgm.volume = 0.1;
 
 // --- 譜面データを直接埋め込む ---
 const notesChart = [
- {"time": 0.54, "side": "left"},
+  {"time": 0.54, "side": "left"},
   {"time": 1.11, "side": "left"},
   {"time": 1.48, "side": "right"},
   {"time": 1.86, "side": "right"},
@@ -96,8 +96,10 @@ const notesChart = [
   {"time": 4.50, "side": "right"},
   {"time": 4.69, "side": "left"},
   {"time": 4.87, "side": "right"},
+  {"time": 4.87, "side": "left"},//追加
   {"time": 5.25, "side": "left"},
   {"time": 5.63, "side": "left"},
+  {"time": 5.63, "side": "right"},//追加
   {"time": 6.57, "side": "left"},
   {"time": 7.14, "side": "left"},
   {"time": 7.52, "side": "right"},
@@ -121,12 +123,14 @@ const notesChart = [
   {"time": 15.44, "side": "right"},
   {"time": 15.63, "side": "left"},
   {"time": 16.01, "side": "right"},
+  {"time": 16.01, "side": "left"},//追加
   {"time": 16.39, "side": "left"},
   {"time": 16.95, "side": "right"},
   {"time": 17.33, "side": "left"},
   {"time": 17.52, "side": "right"},
   {"time": 17.89, "side": "right"},
   {"time": 18.27, "side": "right"},
+  {"time": 18.27, "side": "left"},//追加
   {"time": 18.65, "side": "left"},
   {"time": 19.03, "side": "right"},
   {"time": 19.40, "side": "left"},
@@ -137,7 +141,9 @@ const notesChart = [
   {"time": 21.48, "side": "right"},
   {"time": 21.67, "side": "left"},
   {"time": 22.05, "side": "right"},
+  {"time": 22.05, "side": "left"},//追加
   {"time": 22.43, "side": "left"},
+  {"time": 22.43, "side": "right"},//追加
   {"time": 22.99, "side": "right"},
   {"time": 23.37, "side": "left"},
   {"time": 23.55, "side": "right"},
@@ -172,6 +178,7 @@ const notesChart = [
   {"time": 35.25, "side": "right"},
   {"time": 36.01, "side": "left"},
   {"time": 36.77, "side": "right"},
+  {"time": 36.77, "side": "left"},//追加
   {"time": 37.14, "side": "right"},
   {"time": 37.33, "side": "left"},
   {"time": 37.71, "side": "left"},
@@ -188,6 +195,7 @@ const notesChart = [
   {"time": 41.48, "side": "left"},
   {"time": 41.67, "side": "right"},
   {"time": 42.05, "side": "left"},
+  {"time": 42.05, "side": "right"},//追加
   {"time": 42.80, "side": "left"},
   {"time": 43.18, "side": "right"},
   {"time": 43.55, "side": "left"},
@@ -198,7 +206,7 @@ const notesChart = [
   {"time": 44.88, "side": "right"},
   {"time": 45.07, "side": "left"},
   {"time": 45.44, "side": "right"},
-  {"time": 45.62, "side": "left"},
+  {"time": 45.63, "side": "left"},
   {"time": 46.57, "side": "left"},
   {"time": 46.96, "side": "right"},
   {"time": 47.14, "side": "left"},
@@ -213,7 +221,9 @@ const notesChart = [
   {"time": 49.76, "side": "left"},
   {"time": 49.97, "side": "right"},
   {"time": 50.35, "side": "left"},
+  {"time": 50.35, "side": "right"},//追加
   {"time": 50.92, "side": "right"},
+  {"time": 50.92, "side": "left"},//追加
   {"time": 51.29, "side": "left"},
   {"time": 51.48, "side": "right"},
   {"time": 51.86, "side": "left"},
@@ -224,6 +234,7 @@ const notesChart = [
   {"time": 53.56, "side": "left"},
   {"time": 53.75, "side": "right"},
   {"time": 54.12, "side": "left"},
+  {"time": 54.12, "side": "right"},//追加
   {"time": 54.87, "side": "left"},
   {"time": 55.25, "side": "right"},
   {"time": 55.63, "side": "left"},
@@ -232,6 +243,7 @@ const notesChart = [
   {"time": 56.39, "side": "right"},
   {"time": 56.76, "side": "right"},
   {"time": 57.14, "side": "left"},
+  {"time": 57.14, "side": "right"},//追加
   {"time": 57.90, "side": "right"},
   {"time": 58.27, "side": "right"},
   {"time": 58.65, "side": "left"},
@@ -267,8 +279,10 @@ const notesChart = [
   {"time": 69.22, "side": "left"},
   {"time": 69.60, "side": "right"},
   {"time": 69.97, "side": "left"},
+  {"time": 69.97, "side": "right"},//追加
   {"time": 70.54, "side": "right"},
   {"time": 71.11, "side": "right"},
+  {"time": 71.11, "side": "left"},//追加
   {"time": 71.48, "side": "left"},
   {"time": 71.86, "side": "right"},
   {"time": 72.23, "side": "left"},
@@ -291,6 +305,7 @@ const notesChart = [
   {"time": 78.65, "side": "right"},
   {"time": 78.84, "side": "right"},
   {"time": 79.03, "side": "left"},
+  {"time": 79.03, "side": "right"},//追加
   {"time": 79.56, "side": "left"},
   {"time": 79.97, "side": "right"},
   {"time": 80.35, "side": "right"},
@@ -299,8 +314,10 @@ const notesChart = [
   {"time": 81.67, "side": "right"},
   {"time": 82.05, "side": "right"},
   {"time": 82.61, "side": "left"},
+  {"time": 82.61, "side": "right"},//追加 
   {"time": 82.99, "side": "right"},
   {"time": 83.37, "side": "left"},
+  {"time": 83.37, "side": "right"},//追加
   {"time": 83.93, "side": "right"},
   {"time": 84.31, "side": "right"},
   {"time": 84.88, "side": "left"},
@@ -326,16 +343,12 @@ let audioContext, tapBuffer = null;
 // ノーツ到達までの秒数
 const noteTravelSec = noteDuration / 60;
   
-// 効果音を事前にバッファ化
+// --- 効果音ロード ---
 async function loadTapSE() {
-  // AudioContextが既に作成済みならresume
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
-  // ここでresumeしておく（ユーザー操作時は必ず許可される）
   await audioContext.resume();
-
-  // 効果音ロード
   if (!tapBuffer) {
     const response = await fetch('tap.wav');
     const arrayBuffer = await response.arrayBuffer();
@@ -543,14 +556,61 @@ function calcTapBase(){
   }
   return Math.min(50000, baseRaw);
 }
+  
+// 同時押し（左右同時刻）ペアのindexリストを作成
+function getSimultaneousPairsInNotes() {
+  const pairs = [];
+  const used = new Set();
+  for (let i = 0; i < notes.length; i++) {
+    if (used.has(i)) continue;
+    const ni = notes[i];
+    for (let j = i + 1; j < notes.length; j++) {
+      if (used.has(j)) continue;
+      const nj = notes[j];
+      if (ni.chartIdx !== undefined && nj.chartIdx !== undefined) {
+        const ci = notesChart[ni.chartIdx];
+        const cj = notesChart[nj.chartIdx];
+        if (ci && cj && ci.time === cj.time && ci.side !== cj.side) {
+          pairs.push([ni, nj]);
+          used.add(i); used.add(j);
+          break;
+        }
+      }
+    }
+  }
+  return pairs;
+}
 
-// --- 判定ごとのスコア補正 ---
+  // --- ノーツ判定関数(ノーツ参照で直接消す) ---
+function judgeSingleNoteAt(mx, my, excludeNotes) {
+  let bestNote = null, bestDist = Infinity, bestTarget = null;
+  for (const n of notes) {
+    if (excludeNotes && excludeNotes.includes(n)) continue;
+    const target = n.side === 'left' ? leftTarget : rightTarget;
+    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
+    const judgeDist = Math.hypot(pos.x - mx, pos.y - my);
+    if (judgeDist < bestDist) { bestDist = judgeDist; bestNote = n; bestTarget = target; }
+  }
+  if (bestNote) {
+    const baseRaw = calcTapBase();
+    const {points, label, reset} = calcTapScoreAndLabel(bestDist, baseRaw);
+    if (label !== 'MISS') {
+      awardHit(bestTarget, points, label, reset, baseRaw, bestNote.chartIdx);
+      notes = notes.filter(n => n !== bestNote);
+      if (excludeNotes) excludeNotes.push(bestNote);
+      return true;
+    }
+  }
+  return false;
+}
+  
+// 判定ラベル・スコア計算
 function calcTapScoreAndLabel(dist, baseRaw){
   let label='WONDERFUL', mult=1.2;
-  if(dist<=6){label='WONDERFUL';mult=1.2;}
-  else if(dist<=10){label='GREAT';mult=1.1;}
-  else if(dist<=14){label='NICE';mult=1.0;}
-  else if(dist<=18){label='BAD';mult=0.9;}
+  if(dist<=10){label='WONDERFUL';mult=1.2;}
+  else if(dist<=18){label='GREAT';mult=1.1;}
+  else if(dist<=24){label='NICE';mult=1.0;}
+  else if(dist<=28){label='BAD';mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(Math.random()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
@@ -604,7 +664,7 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
     voltage = Math.floor(voltage * permanentBuff);
     if (voltage > 50000) voltage = 50000;
     score += voltage;
-    skillHistory.unshift({text:`[ボルテージ獲得 ${voltage}]`, life:180});
+    skillHistory.unshift({text:`[追加スコア獲得 ${voltage}]`, life:180});
   　}else if(skillType===1){
       spValue = Math.min(SP_MAX, spValue+540);
       skillHistory.unshift({text:`[SPゲージ獲得 9%]`, life:180});
@@ -615,7 +675,7 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
     if(skillHistory.length>5) skillHistory.pop();
   }
 
-  // ★★ AC開始バフ抽選（STARTノーツ到達時のみ） ★★
+  // AC開始バフ抽選（STARTノーツ到達時のみ）
   for(const ac of acList){
     if(ac.state === "waiting" && chartIdx === ac.startIdx){
       ac.state = "active";
@@ -643,13 +703,16 @@ function isInSPSemicircle(mx,my){
   const dx=mx-cx, dy=my-cy, dist=Math.hypot(dx,dy);
   return (dist<=r) && (my<=cy);
 }
-function judgeNotesGlobal(){
+  
+// ノーツ判定関数
+function judgeNotesGlobal(mx, my){
   let bestIdx=-1, bestDist=Infinity, bestTarget=null;
   for(let i=0;i<notes.length;i++){
     const n=notes[i];
     const target=n.side==='left'?leftTarget:rightTarget;
     const pos=cubicBezier(n.path.p0,n.path.p1,n.path.p2,n.path.p3, Math.min(1,n.t/n.duration));
-    const judgeDist=Math.hypot(pos.x-target.x, pos.y-target.y);
+    // 判定座標との差で判定（mx, myを使う）
+    const judgeDist=Math.hypot(pos.x-mx, pos.y-my);
     if(judgeDist<bestDist){bestDist=judgeDist; bestIdx=i; bestTarget=target;}
   }
   if(bestIdx>=0){
@@ -664,7 +727,7 @@ function judgeNotesGlobal(){
   return false;
 }
 
-// --- SPゲージ使用時のスコア計算（上限250000制限を正しく適用） ---
+// --- SPゲージ使用時のスコア計算 ---
 function tryUseSP(mx,my){
   if(spValue<SP_MAX) return false;
   if(!isInSPSemicircle(mx,my)) return false;
@@ -706,35 +769,120 @@ function tryUseSP(mx,my){
   return true;
 }
   
+// == タップ時の処理 ==
+// ペアも単発も「距離判定」で、2本指時は同時ペアの右→左の順で個別に判定・消去
 function handlePointer(e){
   if(gameState!=="playing") return;
   const isTouch = e.type.startsWith('touch');
-  if(isTouch){ lastInputWasTouch=true; e.preventDefault(); }
+  let fingers = 1;
+  if(isTouch){
+    lastInputWasTouch=true;
+    e.preventDefault();
+    fingers = (e.touches && e.touches.length) ? e.touches.length : 1;
+  }
   if(!isTouch && lastInputWasTouch){ lastInputWasTouch=false; return; }
-  const rect=cvs.getBoundingClientRect();
-  const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-  const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-  const scaleX = cvs.width  / rect.width;
-  const scaleY = cvs.height / rect.height;
-  const mx=(clientX-rect.left)*scaleX;
-  const my=(clientY-rect.top )*scaleY;
 
-  // SP半円内のタップなら…
-  if(isInSPSemicircle(mx,my)){
-    // SP満タン時だけ発動
-    if(spValue >= SP_MAX){
-      tryUseSP(mx,my); // SP発動
+  // SP半円は従来通り
+  if(isTouch){
+    for(const t of e.touches){
+      const rect = cvs.getBoundingClientRect();
+      const scaleX = cvs.width  / rect.width;
+      const scaleY = cvs.height / rect.height;
+      const mx = (t.clientX-rect.left)*scaleX;
+      const my = (t.clientY-rect.top )*scaleY;
+      if(isInSPSemicircle(mx,my)){
+        if(spValue >= SP_MAX){ tryUseSP(mx,my); }
+        return;
+      }
     }
-    // SPが満タンでない場合は何もしない（MISSにしない）
+  }else{
+    const rect = cvs.getBoundingClientRect();
+    const scaleX = cvs.width  / rect.width;
+    const scaleY = cvs.height / rect.height;
+    const mx = (e.clientX-rect.left)*scaleX;
+    const my = (e.clientY-rect.top )*scaleY;
+    if(isInSPSemicircle(mx,my)){
+      if(spValue >= SP_MAX){ tryUseSP(mx,my); }
+      return;
+    }
+  }
+
+  // === コア判定 ===
+
+  // 2本指なら同時押しペアを右→左順で判定（どちらかだけでも消える）
+  if(fingers >= 2){
+    const pairs = getSimultaneousPairsInNotes(); // [[nL, nR], ...]
+    for (const [nL, nR] of pairs) {
+      let right = nL, left = nR;
+      if(notesChart[nL.chartIdx]?.side === "left" && notesChart[nR.chartIdx]?.side === "right"){
+        left = nL; right = nR;
+      }
+      const posR = cubicBezier(right.path.p0, right.path.p1, right.path.p2, right.path.p3, Math.min(1, right.t/right.duration));
+      const distR = Math.hypot(posR.x - rightTarget.x, posR.y - rightTarget.y);
+      const baseRaw = calcTapBase();
+      const resR = calcTapScoreAndLabel(distR, baseRaw);
+      if(resR.label !== 'MISS'){
+        awardHit(rightTarget, resR.points, resR.label, resR.reset, baseRaw, right.chartIdx);
+        notes = notes.filter(n => n !== right);
+      }
+      const posL = cubicBezier(left.path.p0, left.path.p1, left.path.p2, left.path.p3, Math.min(1, left.t/left.duration));
+      const distL = Math.hypot(posL.x - leftTarget.x, posL.y - leftTarget.y);
+      const resL = calcTapScoreAndLabel(distL, baseRaw);
+      if(resL.label !== 'MISS'){
+        awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
+        notes = notes.filter(n => n !== left);
+      }
+      // どちらもMISSなら何もしない
+    }
     return;
   }
-  // それ以外はノーツ判定
-  if(judgeNotesGlobal()) return;
-  applyMiss('MISS');
+
+  // 1本指時は単発ノーツのみ左右順に判定
+  function isNotPairNote(n){
+    return !notes.some(other =>
+      other !== n &&
+      notesChart[n.chartIdx]?.time === notesChart[other.chartIdx]?.time &&
+      notesChart[n.chartIdx]?.side !== notesChart[other.chartIdx]?.side
+    );
+  }
+  let targetNotes = notes.filter(isNotPairNote);
+
+  let bestL = null, bestDistL = Infinity;
+  for(const n of targetNotes){
+    if(n.side !== 'left') continue;
+    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
+    const dist = Math.hypot(pos.x-leftTarget.x, pos.y-leftTarget.y);
+    if(dist < bestDistL){ bestDistL = dist; bestL = n; }
+  }
+  if(bestL){
+    const baseRaw = calcTapBase();
+    const res = calcTapScoreAndLabel(bestDistL, baseRaw);
+    if(res.label !== 'MISS'){
+      awardHit(leftTarget, res.points, res.label, res.reset, baseRaw, bestL.chartIdx);
+      notes = notes.filter(n => n !== bestL);
+    }
+  }
+
+  let bestR = null, bestDistR = Infinity;
+  for(const n of targetNotes){
+    if(n.side !== 'right') continue;
+    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
+    const dist = Math.hypot(pos.x-rightTarget.x, pos.y-rightTarget.y);
+    if(dist < bestDistR){ bestDistR = dist; bestR = n; }
+  }
+  if(bestR){
+    const baseRaw = calcTapBase();
+    const res = calcTapScoreAndLabel(bestDistR, baseRaw);
+    if(res.label !== 'MISS'){
+      awardHit(rightTarget, res.points, res.label, res.reset, baseRaw, bestR.chartIdx);
+      notes = notes.filter(n => n !== bestR);
+    }
+  }
 }
-  
+
+// --- イベント登録 ---
 cvs.addEventListener('touchstart',handlePointer,{passive:false});
-cvs.addEventListener('click',handlePointer);
+cvs.addEventListener('mousedown',handlePointer);
 
 startBtn.onclick = async function() {
   await loadTapSE();
@@ -762,7 +910,7 @@ startBtn.onclick = async function() {
     noteCounter = 0;
     totalSPUsed = 0;
 
-    // --- ★ 永続バフ初期化&50%で発動処理 ---
+    // --- 永続バフ初期化&50%で発動処理 ---
     permanentScoreBuff = 0;
     if(Math.random() < 0.5){
       permanentScoreBuff++;
@@ -871,9 +1019,73 @@ function update(){
   hitRings=hitRings.filter(r=>{r.r+=4; r.alpha-=0.06; return r.alpha>0;});
   popups=popups.filter(p=>{p.timer--; return p.timer>0;});
   }
+  // --- ユーティリティ: 同時押しペア情報を取得 ---
+function getSimultaneousPairs() {
+  // timeが一致し、sideが違う2ノーツのペアを列挙
+  const pairs = [];
+  for (let i = 0; i < notes.length; i++) {
+    const n1 = notes[i];
+    if (n1.paired) continue;
+    for (let j = i + 1; j < notes.length; j++) {
+      const n2 = notes[j];
+      if (n2.paired) continue;
+      if (n1.chartIdx !== undefined && n2.chartIdx !== undefined) {
+        const ni = notesChart[n1.chartIdx];
+        const nj = notesChart[n2.chartIdx];
+        if (ni && nj && ni.time === nj.time && ni.side !== nj.side) {
+          n1.paired = n2.paired = true;
+          pairs.push([n1, n2]);
+        }
+      }
+    }
+  }
+  notes.forEach(n => delete n.paired);
+  return pairs;
+}
+
+// 判定本体: 指定座標(mx, my)で一番近いノーツを判定
+function judgeNotesAt(mx, my, alreadyHitIdx){
+  let bestIdx=-1, bestDist=Infinity, bestTarget=null;
+  for(let i=0;i<notes.length;i++){
+    if (alreadyHitIdx && alreadyHitIdx.includes(i)) continue;
+    const n=notes[i];
+    const target=n.side==='left'?leftTarget:rightTarget;
+    const pos=cubicBezier(n.path.p0,n.path.p1,n.path.p2,n.path.p3, Math.min(1,n.t/n.duration));
+    const judgeDist=Math.hypot(pos.x-mx, pos.y-my);
+    if(judgeDist<bestDist){bestDist=judgeDist; bestIdx=i; bestTarget=target;}
+  }
+  if(bestIdx>=0){
+    const baseRaw = calcTapBase();
+    const {points,label,reset}=calcTapScoreAndLabel(bestDist, baseRaw);
+    if(label!=='MISS'){
+      awardHit(bestTarget, points, label, reset, baseRaw, notes[bestIdx].chartIdx);
+      notes.splice(bestIdx,1);
+      if (alreadyHitIdx) alreadyHitIdx.push(bestIdx);
+      return true;
+    }
+  }
+  return false;
+}
   
-// --- ノーツ描画 ---
+// --- ノーツ描画: 同時押しペア間に白線描画 ---
 function drawNotes(){
+  // 1. 同時ペアの白い線
+  const pairs = getSimultaneousPairs();
+  ctx.save();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = R * 0.19;
+  ctx.globalAlpha = 0.8;
+  for (const [n1, n2] of pairs) {
+    const pos1 = cubicBezier(n1.path.p0, n1.path.p1, n1.path.p2, n1.path.p3, Math.min(1, n1.t/n1.duration));
+    const pos2 = cubicBezier(n2.path.p0, n2.path.p1, n2.path.p2, n2.path.p3, Math.min(1, n2.t/n2.duration));
+    ctx.beginPath();
+    ctx.moveTo(pos1.x, pos1.y);
+    ctx.lineTo(pos2.x, pos2.y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. 通常ノーツ描画
   for(let i=0;i<notes.length;i++){
     const n = notes[i];
     const noteInfo = notesChart[n.chartIdx];
@@ -899,7 +1111,7 @@ function drawNotes(){
     const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
     const r = R;
 
-    // --- 1. 外側グロー ---
+    // --- グロー ---
     ctx.save();
     ctx.globalAlpha = 0.90;
     ctx.beginPath();
@@ -912,7 +1124,7 @@ function drawNotes(){
     ctx.fill();
     ctx.restore();
 
-    // --- 2. 外枠リム ---
+    // --- 外枠 ---
     ctx.save();
     ctx.strokeStyle = rimColor;
     ctx.lineWidth = r * 0.18;
@@ -922,7 +1134,7 @@ function drawNotes(){
     ctx.stroke();
     ctx.restore();
 
-    // --- 3. 主円 ---
+    // --- 主円 ---
     ctx.save();
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r * 0.72, 0, Math.PI * 2);
@@ -933,7 +1145,7 @@ function drawNotes(){
     ctx.fill();
     ctx.restore();
 
-    // --- 4. 中心ドット ---
+    // --- 中心ドット ---
     ctx.save();
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r * 0.22, 0, Math.PI * 2);
@@ -942,7 +1154,7 @@ function drawNotes(){
     ctx.fill();
     ctx.restore();
 
-    // --- START/FINISHラベル（indexで判定）---
+    // --- START/FINISHラベル ---
     for(const ac of acList){
       if(ac.startIdx === idx){
         ctx.font = `bold ${Math.round(R*0.8)}px system-ui`;
@@ -972,7 +1184,7 @@ function drawACMissionNotice(){
   const ac = acList.find(ac => (ac.state === "active" || ac.state === "cleared") &&
     nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec);
   if(!ac) return;
-  // 横幅を広く&進捗バーより下で中央より上位置
+  // 進捗バーより下で中央より上位置
   const barMarginLeft = 20;
   const barMarginRight = 200;
   const barWidth = Math.max(140, cvs.width - barMarginLeft - barMarginRight);
@@ -1119,7 +1331,7 @@ function drawSPGauge(){
   ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(nx,ny); ctx.stroke();
   ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy,Math.max(3, radius*0.06),0,Math.PI*2); ctx.fill();
 
-  // ★満タン時発光エフェクト
+  // 満タン時発光エフェクト
   if(spValue >= SP_MAX){
     ctx.save();
     ctx.globalAlpha = 0.33; // 薄い発光
@@ -1280,7 +1492,7 @@ function drawACFailFlash(){
     ctx.restore();
   }
 } 
-// ★ 判定回数リザルト左下表示
+// 判定回数リザルト左下表示
 function drawJudgeCountsResult() {
   const baseX = 30;
   const baseY = cvs.height - 28;
@@ -1386,7 +1598,7 @@ function render(){
     ctx.font=`bold ${scoreFontSize}px system-ui`;
     ctx.lineWidth=10; ctx.strokeStyle='#000'; ctx.strokeText(`SCORE: ${score}`, 0, 0);
     ctx.fillStyle='#39ff14'; ctx.fillText(`SCORE: ${score}`, 0, 0);
-    // ★BEST SCORE表示
+    // BEST SCORE表示
     ctx.font=`bold ${scoreFontSize*0.8}px system-ui`;
     ctx.lineWidth=8;
     ctx.strokeStyle="#000";
