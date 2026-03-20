@@ -1,5 +1,12 @@
 // --- AC（アピールチャンス）設定（timeベース完全版） ---
-const acList = [
+// --- 曲設定 ---
+const SONGS = [
+  {
+    id: "SStar",
+    title: "ユメ語るよりユメ歌おう",
+    bgmSrc: "YumeYume.wav",
+    jacketId: "jacketImg",
+    acList: [
   {
     startTime: 12.99,
     endTime: 24.31,
@@ -42,263 +49,8 @@ const acList = [
     tapScore: 0,
     spScore: 0
   }
-];
-  
-// --- 必須グローバル変数 ---
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz2gsX2XXdV0OOvHtPF0AsHkTBvrCQ_8_1zYxVQ0bki_CoAlFy25QbsEryqTe-dZJJu/exec";
-const cvs = document.getElementById('game');
-const ctx = cvs.getContext('2d');
-const rotateMsg = document.getElementById('rotateMsg');
-const startBtn = document.getElementById('startBtn');
-const retryBtn = document.getElementById('retryBtn');
-let reseedBtn = document.getElementById('reseedBtn');
-if (!reseedBtn) {
-    reseedBtn = document.createElement('button');
-    reseedBtn.id = 'reseedBtn';
-    document.body.appendChild(reseedBtn);
-}
-reseedBtn.textContent = '乱数再現';
-reseedBtn.style.position = 'absolute';
-// 画面右下に配置
-reseedBtn.style.bottom = '20px';
-reseedBtn.style.right = '20px';
-reseedBtn.style.left = 'auto';
-reseedBtn.style.transform = 'none';
-reseedBtn.style.padding = '10px 20px';
-reseedBtn.style.fontSize = '16px';
-reseedBtn.style.backgroundColor = 'green';
-reseedBtn.style.color = 'white';
-reseedBtn.style.border = 'none';
-reseedBtn.style.borderRadius = '5px';
-reseedBtn.style.cursor = 'pointer';
-reseedBtn.style.display = 'none'; // 最初は非表示
-
-const bgm = document.getElementById('bgm');
-const bgimg = document.getElementById('bgimg');
-bgm.volume = 0.1;
-
-// --- JSONP ---
-function jsonp(url, timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
-    const cbName = "__jsonp_cb_" + Math.random().toString(36).slice(2);
-    const sep = url.includes("?") ? "&" : "?";
-    const full = `${url}${sep}callback=${encodeURIComponent(cbName)}`;
-
-    let done = false;
-    const script = document.createElement("script");
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error("timeout"));
-    }, timeoutMs);
-
-    function cleanup() {
-      clearTimeout(timer);
-      try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    window[cbName] = (data) => {
-      if (done) return;
-      done = true;
-      cleanup();
-      resolve(data);
-    };
-
-    script.onerror = () => {
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error("network error"));
-    };
-
-    script.src = full;
-    document.body.appendChild(script);
-  });
-}
-
-// --- ランキング取得（※名前は fetchTopScores）---
-async function fetchTopScores(limit) {
-  const url = (typeof limit === 'number')
-    ? `${GAS_ENDPOINT}?action=top&limit=${encodeURIComponent(limit)}`
-    : `${GAS_ENDPOINT}?action=top`;
-  return await jsonp(url);
-}
-
-// --- スコア送信 ---
-async function submitScore(name, score, seed) {
-  const url =
-    `${GAS_ENDPOINT}?action=submit` +
-    `&name=${encodeURIComponent(name)}` +
-    `&score=${encodeURIComponent(score)}` +
-    `&seed=${encodeURIComponent(seed)}` +
-    `&ua=${encodeURIComponent(navigator.userAgent)}`;
-  return await jsonp(url);
-}
-
-let rankingBtn = document.getElementById('rankingBtn');
-if (!rankingBtn) {
-  rankingBtn = document.createElement('button');
-  rankingBtn.id = 'rankingBtn';
-  rankingBtn.textContent = 'ランキング';
-  document.body.appendChild(rankingBtn);
-}
-rankingBtn.style.position = 'absolute';
-rankingBtn.style.top = '20px';
-rankingBtn.style.right = '20px';
-rankingBtn.style.padding = '10px 16px';
-rankingBtn.style.fontSize = '16px';
-rankingBtn.style.backgroundColor = '#111827';
-rankingBtn.style.color = 'white';
-rankingBtn.style.border = 'none';
-rankingBtn.style.borderRadius = '6px';
-rankingBtn.style.cursor = 'pointer';
-rankingBtn.style.display = 'none';
-
-let rankingModal = document.getElementById('rankingModal');
-if (!rankingModal) {
-  rankingModal = document.createElement('div');
-  rankingModal.id = 'rankingModal';
-  rankingModal.style.position = 'absolute';
-  rankingModal.style.left = '50%';
-  rankingModal.style.top = '50%';
-  rankingModal.style.transform = 'translate(-50%, -50%)';
-  rankingModal.style.minWidth = '520px';
-  rankingModal.style.maxWidth = '80vw';
-  rankingModal.style.background = 'rgba(0,0,0,0.82)';
-  rankingModal.style.color = '#fff';
-  rankingModal.style.border = '1px solid rgba(255,255,255,0.25)';
-  rankingModal.style.borderRadius = '10px';
-  rankingModal.style.padding = '14px 16px';
-  rankingModal.style.zIndex = '9999';
-  rankingModal.style.display = 'none';
-
-  rankingModal.innerHTML = `
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
-    <div style="font-weight:800; font-size:18px;">全体ランキング</div>
-    <button id="rankingCloseBtn"
-      style="padding:6px 10px; background:#111827; color:#fff; border:1px solid rgba(255,255,255,0.25); border-radius:8px; cursor:pointer;">
-      閉じる
-    </button>
-  </div>
-
-  <!-- スクロール枠：見えるのはだいたいTOP5分 -->
-  <div id="rankingScroll"
-    style="
-      max-height: 240px;       /* ★ここが表示行数に相当（あとで調整） */
-      overflow-y: auto;
-      padding-right: 6px;      /* スクロールバー分 */
-    ">
-    <div id="rankingTable"
-      style="
-        display:grid;
-        grid-template-columns: 72px 1fr 160px;
-        gap:6px 10px;
-        align-items:center;
-        font-size:16px;
-      ">
-    </div>
-  </div>
-`;
-  document.body.appendChild(rankingModal);
-
-  rankingModal.querySelector('#rankingCloseBtn').onclick = () => {
-  rankingModal.style.display = 'none';
-　};
-}
-
-function renderRankingTable(rows) {
-  const table = rankingModal.querySelector('#rankingTable');
-
-  const headerCell = (text, align = 'left') =>
-    `<div style="font-weight:800; opacity:0.95; padding-bottom:6px; border-bottom:1px dashed rgba(255,255,255,0.35); text-align:${align};">
-      ${text}
-     </div>`;
-
-  const cell = (text, align = 'left') =>
-    `<div style="padding-top:6px; text-align:${align}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-      ${text}
-     </div>`;
-
-  let html = '';
-  html += headerCell('順位');
-  html += headerCell('名前');
-  html += headerCell('ベストスコア', 'right');
-
-  for (const r of rows) {
-    const rankText = `${r.rank}位`;
-    const nameText = String(r.name ?? '');
-    const scoreNum = Number(r.score ?? 0);
-    const scoreText = Number.isFinite(scoreNum) ? scoreNum.toLocaleString('ja-JP') : '';
-
-    html += cell(rankText);
-    html += cell(escapeHtml_(nameText));
-    html += cell(scoreText, 'right');
-  }
-
-  table.innerHTML = html;
-}
-
-function escapeHtml_(s) {
-  return String(s)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-rankingBtn.onclick = async () => {
-  try {
-    const res = await fetchTopScores();
-    if (!res.ok) throw new Error(res.error || 'unknown');
-
-    const rows = (res.data && res.data.length) ? res.data : [];
-    renderRankingTable(rows);
-
-    rankingModal.style.display = 'block';
-    const sc = rankingModal.querySelector('#rankingScroll');
-    if (sc) sc.scrollTop = 0;
-  } catch (e) {
-    alert('ランキング取得に失敗しました: ' + e.message);
-  }
-};
-
-let saveScoreBtn = document.getElementById('saveScoreBtn');
-if (!saveScoreBtn) {
-  saveScoreBtn = document.createElement('button');
-  saveScoreBtn.id = 'saveScoreBtn';
-  saveScoreBtn.textContent = 'スコア送信';
-  document.body.appendChild(saveScoreBtn);
-}
-saveScoreBtn.style.position = 'absolute';
-saveScoreBtn.style.right = '20px';
-saveScoreBtn.style.top = '50%';
-saveScoreBtn.style.transform = 'translateY(-50%)';
-saveScoreBtn.style.padding = '10px 20px';
-saveScoreBtn.style.fontSize = '16px';
-saveScoreBtn.style.backgroundColor = '#2563eb';
-saveScoreBtn.style.color = 'white';
-saveScoreBtn.style.border = 'none';
-saveScoreBtn.style.borderRadius = '6px';
-saveScoreBtn.style.cursor = 'pointer';
-saveScoreBtn.style.display = 'none';
-
-saveScoreBtn.onclick = async () => {
-  const name = prompt('名前を入力してください（10文字まで）');
-  if (!name) return;
-  try {
-    const res = await submitScore(name, score, lastGameSeed);
-    if (!res.ok) throw new Error(res.error || 'unknown');
-    alert('送信しました！');
-  } catch (e) {
-    alert('送信に失敗しました: ' + e.message);
-  }
-};
-
-// --- 譜面データを直接埋め込む ---
-const notesChart = [
+    ],
+    notesChart: [
   {"time": 0.54, "side": "left"},
   {"time": 1.11, "side": "left"},
   {"time": 1.48, "side": "right"},
@@ -541,8 +293,284 @@ const notesChart = [
   {"time": 85.82, "side": "left"},
   {"time": 86.20, "side": "right"},
   {"time": 86.39, "side": "left"}
+    ]
+  }
 ];
-  
+let currentSong = SONGS[0];
+
+// --- 必須グローバル変数 ---
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz2gsX2XXdV0OOvHtPF0AsHkTBvrCQ_8_1zYxVQ0bki_CoAlFy25QbsEryqTe-dZJJu/exec";
+const cvs = document.getElementById('game');
+const ctx = cvs.getContext('2d');
+const rotateMsg = document.getElementById('rotateMsg');
+const startBtn = document.getElementById('startBtn');
+const retryBtn = document.getElementById('retryBtn');
+let reseedBtn = document.getElementById('reseedBtn');
+if (!reseedBtn) {
+    reseedBtn = document.createElement('button');
+    reseedBtn.id = 'reseedBtn';
+    document.body.appendChild(reseedBtn);
+}
+reseedBtn.textContent = '乱数再現';
+reseedBtn.style.position = 'absolute';
+// 画面右下に配置
+reseedBtn.style.bottom = '20px';
+reseedBtn.style.right = '20px';
+reseedBtn.style.left = 'auto';
+reseedBtn.style.transform = 'none';
+reseedBtn.style.padding = '10px 20px';
+reseedBtn.style.fontSize = '16px';
+reseedBtn.style.backgroundColor = 'green';
+reseedBtn.style.color = 'white';
+reseedBtn.style.border = 'none';
+reseedBtn.style.borderRadius = '5px';
+reseedBtn.style.cursor = 'pointer';
+reseedBtn.style.display = 'none'; // 最初は非表示
+
+const bgm = document.getElementById('bgm');
+const bgimg = document.getElementById('bgimg');
+const titleImg = document.getElementById('titleImg');
+const jacketImg = document.getElementById('jacketImg');
+const titleBgm = document.getElementById('titleBgm');
+bgm.volume = 0.1;
+titleBgm.volume = 0.1;
+
+// --- JSONP ---
+function jsonp(url, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const cbName = "__jsonp_cb_" + Math.random().toString(36).slice(2);
+    const sep = url.includes("?") ? "&" : "?";
+    const full = `${url}${sep}callback=${encodeURIComponent(cbName)}`;
+
+    let done = false;
+    const script = document.createElement("script");
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      cleanup();
+      reject(new Error("timeout"));
+    }, timeoutMs);
+
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = (data) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      reject(new Error("network error"));
+    };
+
+    script.src = full;
+    document.body.appendChild(script);
+  });
+}
+
+// --- ランキング取得（※名前は fetchTopScores）---
+async function fetchTopScores(limit) {
+  const url = (typeof limit === 'number')
+    ? `${GAS_ENDPOINT}?action=top&limit=${encodeURIComponent(limit)}`
+    : `${GAS_ENDPOINT}?action=top`;
+  const res = await jsonp(url);
+  // 曲ごとにタグで分離：現在の曲のスコアのみ抽出し、タグを名前から取り除く
+  if (res && res.ok && Array.isArray(res.data)) {
+    const tag = ` [${currentSong.id}]`;
+    res.data = res.data
+      .filter(r => String(r.name ?? '').endsWith(tag))
+      .map(r => ({ ...r, name: String(r.name).slice(0, -tag.length) }));
+  }
+  return res;
+}
+
+// --- スコア送信（曲タグを名前に付加して曲別管理） ---
+async function submitScore(name, score, seed) {
+  const taggedName = name + ` [${currentSong.id}]`;
+  const url =
+    `${GAS_ENDPOINT}?action=submit` +
+    `&name=${encodeURIComponent(taggedName)}` +
+    `&score=${encodeURIComponent(score)}` +
+    `&seed=${encodeURIComponent(seed)}` +
+    `&ua=${encodeURIComponent(navigator.userAgent)}`;
+  return await jsonp(url);
+}
+
+let rankingBtn = document.getElementById('rankingBtn');
+if (!rankingBtn) {
+  rankingBtn = document.createElement('button');
+  rankingBtn.id = 'rankingBtn';
+  rankingBtn.textContent = 'ランキング';
+  document.body.appendChild(rankingBtn);
+}
+rankingBtn.style.position = 'absolute';
+rankingBtn.style.left = '50%';
+rankingBtn.style.transform = 'translateX(-50%)';
+rankingBtn.style.right = 'auto';
+rankingBtn.style.top = 'auto';
+rankingBtn.style.padding = '0.45em 2em';
+rankingBtn.style.fontSize = '0.95rem';
+rankingBtn.style.backgroundColor = '#1e293b';
+rankingBtn.style.color = 'white';
+rankingBtn.style.border = '1px solid rgba(255,255,255,0.18)';
+rankingBtn.style.borderRadius = '8px';
+rankingBtn.style.cursor = 'pointer';
+rankingBtn.style.letterSpacing = '0.04em';
+rankingBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.4)';
+rankingBtn.style.zIndex = '100';
+rankingBtn.style.display = 'none';
+
+let rankingModal = document.getElementById('rankingModal');
+if (!rankingModal) {
+  rankingModal = document.createElement('div');
+  rankingModal.id = 'rankingModal';
+  rankingModal.style.position = 'absolute';
+  rankingModal.style.left = '50%';
+  rankingModal.style.top = '50%';
+  rankingModal.style.transform = 'translate(-50%, -50%)';
+  rankingModal.style.minWidth = '520px';
+  rankingModal.style.maxWidth = '80vw';
+  rankingModal.style.background = 'rgba(0,0,0,0.82)';
+  rankingModal.style.color = '#fff';
+  rankingModal.style.border = '1px solid rgba(255,255,255,0.25)';
+  rankingModal.style.borderRadius = '10px';
+  rankingModal.style.padding = '14px 16px';
+  rankingModal.style.zIndex = '9999';
+  rankingModal.style.display = 'none';
+
+  rankingModal.innerHTML = `
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+    <div style="font-weight:800; font-size:18px;" id="rankingTitle">ランキング</div>
+    <button id="rankingCloseBtn"
+      style="padding:6px 10px; background:#111827; color:#fff; border:1px solid rgba(255,255,255,0.25); border-radius:8px; cursor:pointer;">
+      閉じる
+    </button>
+  </div>
+
+  <!-- スクロール枠：見えるのはだいたいTOP5分 -->
+  <div id="rankingScroll"
+    style="
+      max-height: 240px;       /* ★ここが表示行数に相当（あとで調整） */
+      overflow-y: auto;
+      padding-right: 6px;      /* スクロールバー分 */
+    ">
+    <div id="rankingTable"
+      style="
+        display:grid;
+        grid-template-columns: 72px 1fr 160px;
+        gap:6px 10px;
+        align-items:center;
+        font-size:16px;
+      ">
+    </div>
+  </div>
+`;
+  document.body.appendChild(rankingModal);
+
+  rankingModal.querySelector('#rankingCloseBtn').onclick = () => {
+  rankingModal.style.display = 'none';
+　};
+}
+
+function renderRankingTable(rows) {
+  const table = rankingModal.querySelector('#rankingTable');
+
+  const headerCell = (text, align = 'left') =>
+    `<div style="font-weight:800; opacity:0.95; padding-bottom:6px; border-bottom:1px dashed rgba(255,255,255,0.35); text-align:${align};">
+      ${text}
+     </div>`;
+
+  const cell = (text, align = 'left') =>
+    `<div style="padding-top:6px; text-align:${align}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+      ${text}
+     </div>`;
+
+  let html = '';
+  html += headerCell('順位');
+  html += headerCell('名前');
+  html += headerCell('ベストスコア', 'right');
+
+  for (const r of rows) {
+    const rankText = `${r.rank}位`;
+    const nameText = String(r.name ?? '');
+    const scoreNum = Number(r.score ?? 0);
+    const scoreText = Number.isFinite(scoreNum) ? scoreNum.toLocaleString('ja-JP') : '';
+
+    html += cell(rankText);
+    html += cell(escapeHtml_(nameText));
+    html += cell(scoreText, 'right');
+  }
+
+  table.innerHTML = html;
+}
+
+function escapeHtml_(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+rankingBtn.onclick = async () => {
+  try {
+    const res = await fetchTopScores();
+    if (!res.ok) throw new Error(res.error || 'unknown');
+
+    const rows = (res.data && res.data.length) ? res.data : [];
+    renderRankingTable(rows);
+
+    const titleEl = rankingModal.querySelector('#rankingTitle');
+    if (titleEl) titleEl.textContent = '全体ランキング';
+    rankingModal.style.display = 'block';
+    const sc = rankingModal.querySelector('#rankingScroll');
+    if (sc) sc.scrollTop = 0;
+  } catch (e) {
+    alert('ランキング取得に失敗しました: ' + e.message);
+  }
+};
+
+let saveScoreBtn = document.getElementById('saveScoreBtn');
+if (!saveScoreBtn) {
+  saveScoreBtn = document.createElement('button');
+  saveScoreBtn.id = 'saveScoreBtn';
+  saveScoreBtn.textContent = 'スコア送信';
+  document.body.appendChild(saveScoreBtn);
+}
+saveScoreBtn.style.position = 'absolute';
+saveScoreBtn.style.right = '20px';
+saveScoreBtn.style.top = '50%';
+saveScoreBtn.style.transform = 'translateY(-50%)';
+saveScoreBtn.style.padding = '10px 20px';
+saveScoreBtn.style.fontSize = '16px';
+saveScoreBtn.style.backgroundColor = '#2563eb';
+saveScoreBtn.style.color = 'white';
+saveScoreBtn.style.border = 'none';
+saveScoreBtn.style.borderRadius = '6px';
+saveScoreBtn.style.cursor = 'pointer';
+saveScoreBtn.style.display = 'none';
+
+saveScoreBtn.onclick = async () => {
+  const name = prompt('名前を入力してください（10文字まで）');
+  if (!name) return;
+  try {
+    const res = await submitScore(name, score, lastGameSeed);
+    if (!res.ok) throw new Error(res.error || 'unknown');
+    alert('送信しました！');
+  } catch (e) {
+    alert('送信に失敗しました: ' + e.message);
+  }
+};
+
 // --- 乱数生成器 ---
 let _seed = 0;
 function setSeed(s) {
@@ -558,7 +586,7 @@ let lastGameSeed = 0; // 直前のゲームのシードを保存
 // --- グローバル変数 ---
 let chartIndex = 0, R=30, leftTarget={x:0,y:0,r:0}, rightTarget={x:0,y:0,r:0}, spRadius=80;
 let SP_MAX=6000, spValue=0, spFullNotified=false, score=0, combo=0, notes=[], frame=0, noteDuration=55;
-let bestScore = Number(localStorage.getItem('bestScore')) || 0;
+let bestScore = Number(localStorage.getItem('bestScore_' + currentSong.id)) || 0;
 let spFlashTimer=0, spRingTimer=0, spRingSpeed=20, spRingRange=40, spBoostTimer=0, spCountdownTimer=0, spCountdownValue=0;
 let popups=[], hitRings=[], lastInputWasTouch=false;
 let gameState = "init", countdownValue = 3, totalNotesSpawned = 0, clearStartFrame = null, resultStartFrame = null;
@@ -566,6 +594,19 @@ let skillHistory = [], appealBoostNotes = 0, skillActivationCount = 0, spUseCoun
 let judgeCount = {CRITICAL:0,WONDERFUL:0,GREAT:0,NICE:0,BAD:0,MISS:0};
 let spScoreBuffNotes = 0, noteCounter = 0, totalSPUsed = 0, permanentScoreBuff = 0, acFailFlashTimer = 0, waitingClearFrame = null;
 let audioContext, tapBuffer = null;
+
+// --- スタミナシステム ---
+const STAMINA_MAX = 100000;
+let stamina = STAMINA_MAX;
+let damageReduceNotes = 0;
+let skillRateBoostNotes = 0;
+
+// --- 作戦切り替えシステム ---
+let currentStrategy = "red";
+let strategyChangeCooldown = 0;
+const STRATEGY_CHANGE_NOTES = 5;
+let notesProcessedSinceSwitch = 0;
+let strategyBadgeOffsetX = 0; // バッジスライドアニメーション用（0=定位置、負=画面外左）
   
 // ノーツ到達までの秒数
 const noteTravelSec = noteDuration / 60;
@@ -587,8 +628,8 @@ async function loadTapSE() {
 function findClosestNoteIndex(time) {
   let minDiff = Infinity;
   let idx = -1;
-  for (let i = 0; i < notesChart.length; i++) {
-    const diff = Math.abs(notesChart[i].time - time);
+  for (let i = 0; i < currentSong.notesChart.length; i++) {
+    const diff = Math.abs(currentSong.notesChart[i].time - time);
     if (diff < minDiff) {
       minDiff = diff;
       idx = i;
@@ -599,13 +640,13 @@ function findClosestNoteIndex(time) {
   
 // --- assignACNoteIndexes ---
 function assignACNoteIndexes() {
-  for (const ac of acList) {
+  for (const ac of currentSong.acList) {
     // 開始ノーツidx: startTime以上で最初
-    ac.startIdx = notesChart.findIndex(n => n.time >= ac.startTime);
+    ac.startIdx = currentSong.notesChart.findIndex(n => n.time >= ac.startTime);
     // 終了ノーツidx: endTime以下で最後
     let lastIdx = -1;
-    for (let i = 0; i < notesChart.length; i++) {
-      if (notesChart[i].time <= ac.endTime) lastIdx = i;
+    for (let i = 0; i < currentSong.notesChart.length; i++) {
+      if (currentSong.notesChart[i].time <= ac.endTime) lastIdx = i;
     }
     ac.endIdx = lastIdx;
   }
@@ -620,6 +661,32 @@ function getComboBonus(combo) {
   return 1.0;
 }
 
+// --- スタミナ関連関数 ---
+function getNoteDamage() { return 200; }
+
+function getStaminaScoreMult() {
+  const ratio = stamina / STAMINA_MAX;
+  if (ratio >= 0.70) return 1.0;
+  if (ratio >= 0.30) return 0.8;
+  if (ratio > 0)     return 0.6;
+  return 0.0;
+}
+
+function applyACFailDamage() {
+  stamina = Math.max(0, stamina - 25000);
+}
+
+function applyNoteDamage(nowTime) {
+  if (isACClearedNowByTime(nowTime)) return;
+  let damage = getNoteDamage();
+  if (isACActiveByTime(nowTime)) damage = Math.floor(damage * 1.1);
+  if (damageReduceNotes > 0) {
+    damage = Math.floor(damage * 0.5);
+    damageReduceNotes--;
+  }
+  stamina = Math.max(0, stamina - damage);
+}
+
 // 効果音再生
 function playTapSE() {
   if (!tapBuffer) return;
@@ -630,14 +697,14 @@ function playTapSE() {
 }
   
 // --- AC（アピールチャンス）関連（進捗保存のため追加） ---
-  acList.forEach(ac => {
+  currentSong.acList.forEach(ac => {
     ac.tapScore = 0; // タップで得たスコア
     ac.spScore = 0;  // SP発動で得たスコア
   });
   
 // --- AC取得関数 ---
 function getActiveACByTime(nowTime) {
-  return acList.find(ac =>
+  return currentSong.acList.find(ac =>
     (ac.state === "active" || (ac.state === "cleared" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec))
     && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec
   );
@@ -646,7 +713,7 @@ function isACActiveByTime(nowTime) {
   return !!getActiveACByTime(nowTime);
 }
 function isACClearedNowByTime(nowTime) {
-  return !!acList.find(ac =>
+  return !!currentSong.acList.find(ac =>
     ac.state === "cleared" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec
   );
 }
@@ -666,18 +733,17 @@ function resizeCanvas(){
   }
   rotateMsg.style.display='none';
   cvs.style.display='block';
-  if (gameState === "init") rankingBtn.style.display = 'block';
-　else rankingBtn.style.display = 'none';
-　if (gameState === "result") saveScoreBtn.style.display = 'block';
-　else saveScoreBtn.style.display = 'none';
-  if(gameState==="init") startBtn.style.display='block';
-  else startBtn.style.display='none';
+  // ランキングボタンはタイトル画面のみ表示（曲選択画面では非表示）
+  rankingBtn.style.display = (gameState === "init") ? 'block' : 'none';
+　saveScoreBtn.style.display = (gameState === "result") ? 'block' : 'none';
+  startBtn.style.display = (gameState === "init" || gameState === "songSelect") ? 'block' : 'none';
+  startBtn.textContent = gameState === "songSelect" ? 'PLAY' : 'S.T.A.R.T!!';
   if(gameState==="result") {
     retryBtn.style.display='block';
-    reseedBtn.style.display='block'; // リザルトで表示
+    reseedBtn.style.display='block';
   } else {
     retryBtn.style.display='none';
-    reseedBtn.style.display='none'; // それ以外で非表示
+    reseedBtn.style.display='none';
   }
   cvs.width = window.innerWidth;
   cvs.height= window.innerHeight;
@@ -688,6 +754,24 @@ function resizeCanvas(){
   leftTarget  ={x: Math.round(cvs.width/2 - laneGap), y: targetY, r: R};
   rightTarget ={x: Math.round(cvs.width/2 + laneGap), y: targetY, r: R};
   spRadius = Math.max(64, Math.round(minDim*0.12));
+
+  // --- ボタン位置の動的設定 ---
+  if (gameState === "init") {
+    // タイトル画面: S.T.A.R.T!! ボタンを中央より下に、ランキングをその下に配置
+    const startBtnTop = Math.round(cvs.height * 0.67);
+    startBtn.style.top = startBtnTop + 'px';
+    startBtn.style.left = '50%';
+    startBtn.style.transform = 'translateX(-50%)';
+    rankingBtn.style.top = (startBtnTop + 54) + 'px';
+    rankingBtn.style.left = '50%';
+    rankingBtn.style.transform = 'translateX(-50%)';
+    rankingBtn.style.right = 'auto';
+  } else if (gameState === "songSelect") {
+    // 曲選択画面: PLAYボタンを画面下部に小さく配置
+    startBtn.style.top = Math.round(cvs.height * 0.86) + 'px';
+    startBtn.style.left = '50%';
+    startBtn.style.transform = 'translateX(-50%)';
+  }
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -710,7 +794,7 @@ function triggerSPVisual(){ spFlashTimer=10; spRingTimer=spRingSpeed; }
 // --- AC進行チェック（nowTimeで判定） ---
 function updateACOnTap(pointsWithCombo, nowTime) {
   noteCounter++;
-  acList.forEach(ac => {
+  currentSong.acList.forEach(ac => {
     
     if (ac.state === "active" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec) {
       if (ac.type === "score") {
@@ -739,6 +823,7 @@ function updateACOnTap(pointsWithCombo, nowTime) {
       !ac.cleared             // まだクリアしてない
     ) {
       ac.state = "ended";
+      applyACFailDamage();
       acFailFlashTimer = 18; // 0.3秒間赤フラッシュ
       skillHistory.unshift({text: "AC失敗！", life:180});
       if(skillHistory.length>5) skillHistory.pop();
@@ -748,7 +833,7 @@ function updateACOnTap(pointsWithCombo, nowTime) {
 
 function updateACOnSPUse(nowTime, spScore) {
   totalSPUsed++;
-  acList.forEach(ac => {
+  currentSong.acList.forEach(ac => {
     if (ac.state === "active" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec) {
       if (ac.type === "sp") {
         ac.progress += 1;
@@ -780,9 +865,11 @@ function updateACOnSPUse(nowTime, spScore) {
 // ユーザー操作時に一度だけ呼ぶ
 window.addEventListener('touchstart', () => {
   loadTapSE(); // resumeも含む
+  if(gameState === "init" && titleBgm.paused) titleBgm.play().catch(()=>{});
 }, { once: true });
 window.addEventListener('mousedown', () => {
   loadTapSE();
+  if(gameState === "init" && titleBgm.paused) titleBgm.play().catch(()=>{});
 }, { once: true });
 
   
@@ -807,8 +894,8 @@ function getSimultaneousPairsInNotes() {
       if (used.has(j)) continue;
       const nj = notes[j];
       if (ni.chartIdx !== undefined && nj.chartIdx !== undefined) {
-        const ci = notesChart[ni.chartIdx];
-        const cj = notesChart[nj.chartIdx];
+        const ci = currentSong.notesChart[ni.chartIdx];
+        const cj = currentSong.notesChart[nj.chartIdx];
         if (ci && cj && ci.time === cj.time && ci.side !== cj.side) {
           pairs.push([ni, nj]);
           used.add(i); used.add(j);
@@ -863,6 +950,60 @@ function calcTapScoreAndLabel(dist, baseRaw){
 function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
   playTapSE();
   let nowTime = bgm.currentTime || 0;
+
+  // 作戦クールダウンと特技発動率バフのデクリメント
+  if (strategyChangeCooldown > 0) strategyChangeCooldown--;
+  const skillRate = skillRateBoostNotes > 0 ? 0.66 : 0.33;
+  if (skillRateBoostNotes > 0) skillRateBoostNotes--;
+
+  // 特技発動抽選（スタミナダメージより先にdamageReduceNotesをセット → 当ノーツから軽減適用）
+  if(seededRandom() < skillRate){
+    skillActivationCount++;
+    const skillType = Math.floor(seededRandom()*3);
+    if (currentStrategy === "red") {
+      if(skillType===0){
+        // --- ボルテージ獲得(バフ適用版) ---
+        let voltage = baseRaw;
+        if (appealBoostNotes > 0) voltage = Math.ceil(voltage * 1.12);
+        if (spBoostTimer > 0) voltage = Math.floor(voltage * 1.1);
+        const comboBonus = getComboBonus(combo + 1);
+        voltage = Math.floor(voltage * comboBonus);
+        let nowTime2 = bgm.currentTime || 0;
+        if (isACActiveByTime(nowTime2) || isACClearedNowByTime(nowTime2)) voltage = Math.floor(voltage * 1.1);
+        if (spScoreBuffNotes > 0) voltage = Math.floor(voltage * 1.1);
+        let permanentBuff = 1 + permanentScoreBuff * 0.05;
+        voltage = Math.floor(voltage * permanentBuff);
+        if (voltage > 50000) voltage = 50000;
+        score += voltage;
+        skillHistory.unshift({text:`[追加スコア獲得 ${voltage}]`, life:180});
+      }else if(skillType===1){
+        spValue = Math.min(SP_MAX, spValue+540);
+        skillHistory.unshift({text:`[SPゲージ獲得 9%]`, life:180});
+      }else{
+        appealBoostNotes = 5;
+        skillHistory.unshift({text:`[アピール増加 12%]`, life:180});
+      }
+    } else {
+      // --- 緑作戦（ヒーラー）特技 ---
+      if (skillType === 0) {
+        if (stamina > 0) {
+          stamina = Math.min(STAMINA_MAX, stamina + 3000);
+          skillHistory.unshift({text: '[スタミナ回復 3000]', life: 180});
+        }
+      } else if (skillType === 1) {
+        damageReduceNotes += 3;
+        skillHistory.unshift({text: '[ダメージ軽減 50%]', life: 180});
+      } else {
+        skillRateBoostNotes += 2;
+        skillHistory.unshift({text: '[特技発動率上昇 33%]', life: 180});
+      }
+    }
+    if(skillHistory.length>5) skillHistory.pop();
+  }
+
+  // スタミナダメージ適用（特技後なのでdamageReduceNotesが当ノーツに反映される）
+  applyNoteDamage(nowTime);
+
   let acBuff = 1.0;
   if (isACActiveByTime(nowTime) || isACClearedNowByTime(nowTime)) acBuff = 1.1;
   let spBuff = 1.0;
@@ -875,6 +1016,8 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
   const comboBonus = getComboBonus(combo+1);
   let pointsWithCombo = Math.floor(points * comboBonus * acBuff * spBuff * permanentBuff);
   if(pointsWithCombo > 50000) pointsWithCombo = 50000;
+  // スタミナスコア倍率適用
+  pointsWithCombo = Math.floor(pointsWithCombo * getStaminaScoreMult());
 
   score += pointsWithCombo;
   if(resetCombo){if(spValue<SP_MAX) spValue=Math.max(0, spValue-300);combo=0;}
@@ -886,36 +1029,9 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
   addPopup(label, midX, midY - 30, 500, 'label');
   addPopup(String(pointsWithCombo), midX, midY, 500, 'score');
   if(judgeCount[label] !== undefined) judgeCount[label]++;
-  if(seededRandom() < 0.33){
-  skillActivationCount++;
-  const skillType = Math.floor(seededRandom()*3);
-  if(skillType===0){
-    // --- ボルテージ獲得(バフ適用版) ---
-    let voltage = baseRaw;
-    if (appealBoostNotes > 0) voltage = Math.ceil(voltage * 1.12);
-    if (spBoostTimer > 0) voltage = Math.floor(voltage * 1.1);
-    const comboBonus = getComboBonus(combo + 1);
-    voltage = Math.floor(voltage * comboBonus);
-    let nowTime = bgm.currentTime || 0;
-    if (isACActiveByTime(nowTime) || isACClearedNowByTime(nowTime)) voltage = Math.floor(voltage * 1.1);
-    if (spScoreBuffNotes > 0) voltage = Math.floor(voltage * 1.1);
-    let permanentBuff = 1 + permanentScoreBuff * 0.05;
-    voltage = Math.floor(voltage * permanentBuff);
-    if (voltage > 50000) voltage = 50000;
-    score += voltage;
-    skillHistory.unshift({text:`[追加スコア獲得 ${voltage}]`, life:180});
-  　}else if(skillType===1){
-      spValue = Math.min(SP_MAX, spValue+540);
-      skillHistory.unshift({text:`[SPゲージ獲得 9%]`, life:180});
-    }else{
-      appealBoostNotes = 5;
-      skillHistory.unshift({text:`[アピール増加 12%]`, life:180});
-    }
-    if(skillHistory.length>5) skillHistory.pop();
-  }
 
   // AC開始バフ抽選（STARTノーツ到達時のみ）
-  for(const ac of acList){
+  for(const ac of currentSong.acList){
     if(ac.state === "waiting" && chartIdx === ac.startIdx){
       ac.state = "active";
       if(seededRandom() < 0.3){
@@ -930,6 +1046,10 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
 }
   
 function applyMiss(label='MISS'){
+  let nowTime = bgm.currentTime || 0;
+  applyNoteDamage(nowTime);
+  if (strategyChangeCooldown > 0) strategyChangeCooldown--;
+  if (skillRateBoostNotes > 0) skillRateBoostNotes--;
   if(spValue<SP_MAX) spValue=Math.max(0, spValue-300);
   combo=0;
   const midX = (leftTarget.x + rightTarget.x) / 2;
@@ -1009,51 +1129,64 @@ function tryUseSP(mx,my){
 }
   
 // == タップ時の処理 ==
-// ペアも単発も「距離判定」で、2本指時は同時ペアの右→左の順で個別に判定・消去
+// 各タッチを独立して判定（SP・作戦アイコン・ノーツが同時に反応できる）
 function handlePointer(e){
   if(gameState!=="playing") return;
   const isTouch = e.type.startsWith('touch');
-  let fingers = 1;
   if(isTouch){
     lastInputWasTouch=true;
     e.preventDefault();
-    fingers = (e.touches && e.touches.length) ? e.touches.length : 1;
   }
   if(!isTouch && lastInputWasTouch){ lastInputWasTouch=false; return; }
 
-  // SP半円は従来通り
-  if(isTouch){
-    for(const t of e.touches){
-      const rect = cvs.getBoundingClientRect();
-      const scaleX = cvs.width  / rect.width;
-      const scaleY = cvs.height / rect.height;
-      const mx = (t.clientX-rect.left)*scaleX;
-      const my = (t.clientY-rect.top )*scaleY;
-      if(isInSPSemicircle(mx,my)){
-        if(spValue >= SP_MAX){ tryUseSP(mx,my); }
-        return;
-      }
+  const rect = cvs.getBoundingClientRect();
+  const scaleX = cvs.width / rect.width;
+  const scaleY = cvs.height / rect.height;
+
+  // changedTouches: 今回新しく押された指のみ
+  const newPoints = isTouch ? Array.from(e.changedTouches) : [e];
+  let noteFingers = 0;
+
+  for (const t of newPoints) {
+    const tx = (t.clientX - rect.left) * scaleX;
+    const ty = (t.clientY - rect.top) * scaleY;
+
+    // 作戦切り替えアイコン判定
+    const iconW = Math.max(60, Math.round(R * 2.0));
+    const iconH = Math.max(80, Math.round(R * 2.7));
+    const iconCY = cvs.height / 2;
+    if (strategyChangeCooldown === 0 &&
+        ty >= iconCY - iconH / 2 && ty <= iconCY + iconH / 2 &&
+        (tx <= iconW || tx >= cvs.width - iconW)) {
+      currentStrategy = currentStrategy === "red" ? "blue" : "red";
+      strategyChangeCooldown = STRATEGY_CHANGE_NOTES;
+      notesProcessedSinceSwitch = 0;
+      strategyBadgeOffsetX = -300; // バッジを左画面外から登場させる
+      const strategyName = currentStrategy === "red" ? "赤作戦（アタッカー）" : "緑作戦（ヒーラー）";
+      skillHistory.unshift({text: `[${strategyName}に切り替え]`, life: 180});
+      if (skillHistory.length > 5) skillHistory.pop();
+      continue;
     }
-  }else{
-    const rect = cvs.getBoundingClientRect();
-    const scaleX = cvs.width  / rect.width;
-    const scaleY = cvs.height / rect.height;
-    const mx = (e.clientX-rect.left)*scaleX;
-    const my = (e.clientY-rect.top )*scaleY;
-    if(isInSPSemicircle(mx,my)){
-      if(spValue >= SP_MAX){ tryUseSP(mx,my); }
-      return;
+
+    // SP半円判定
+    if (isInSPSemicircle(tx, ty)) {
+      if (spValue >= SP_MAX) tryUseSP(tx, ty);
+      continue;
     }
+
+    noteFingers++;
   }
 
-  // === コア判定 ===
+  if (noteFingers === 0) return;
 
-  // 2本指なら同時押しペアを右→左順で判定（どちらかだけでも消える）
-  if(fingers >= 2){
+  // 全タッチ数（既存指も含む）でペア判定を決定
+  const totalFingers = isTouch ? e.touches.length : 1;
+
+  if (totalFingers >= 2) {
     const pairs = getSimultaneousPairsInNotes(); // [[nL, nR], ...]
     for (const [nL, nR] of pairs) {
       let right = nL, left = nR;
-      if(notesChart[nL.chartIdx]?.side === "left" && notesChart[nR.chartIdx]?.side === "right"){
+      if(currentSong.notesChart[nL.chartIdx]?.side === "left" && currentSong.notesChart[nR.chartIdx]?.side === "right"){
         left = nL; right = nR;
       }
       const posR = cubicBezier(right.path.p0, right.path.p1, right.path.p2, right.path.p3, Math.min(1, right.t/right.duration));
@@ -1080,8 +1213,8 @@ function handlePointer(e){
   function isNotPairNote(n){
     return !notes.some(other =>
       other !== n &&
-      notesChart[n.chartIdx]?.time === notesChart[other.chartIdx]?.time &&
-      notesChart[n.chartIdx]?.side !== notesChart[other.chartIdx]?.side
+      currentSong.notesChart[n.chartIdx]?.time === currentSong.notesChart[other.chartIdx]?.time &&
+      currentSong.notesChart[n.chartIdx]?.side !== currentSong.notesChart[other.chartIdx]?.side
     );
   }
   let targetNotes = notes.filter(isNotPairNote);
@@ -1128,6 +1261,10 @@ async function startGame(seed) {
   await loadTapSE();
   assignACNoteIndexes();
   
+  // タイトルBGM停止・ベストスコア再読み込み
+  try { titleBgm.pause(); titleBgm.currentTime = 0; } catch(e) {}
+  bestScore = Number(localStorage.getItem('bestScore_' + currentSong.id)) || 0;
+
   setSeed(seed);
   lastGameSeed = seed; // 今回のシードを保存
 
@@ -1152,6 +1289,12 @@ async function startGame(seed) {
   judgeCount = {CRITICAL:0,WONDERFUL:0,GREAT:0,NICE:0,BAD:0,MISS:0};
   noteCounter = 0;
   totalSPUsed = 0;
+  stamina = STAMINA_MAX;
+  damageReduceNotes = 0;
+  skillRateBoostNotes = 0;
+  currentStrategy = "red";
+  strategyChangeCooldown = 0;
+  notesProcessedSinceSwitch = 0;
 
   // --- 永続バフ初期化&50%で発動処理 ---
   permanentScoreBuff = 0;
@@ -1162,7 +1305,7 @@ async function startGame(seed) {
   }
 
   // AC状態リセット
-  acList.forEach(ac=>{
+  currentSong.acList.forEach(ac=>{
     ac.state = "waiting";
     ac.progress = 0;
     ac.cleared = false;
@@ -1178,7 +1321,13 @@ async function startGame(seed) {
 
 startBtn.onclick = function() {
   if(gameState === "init"){
-    startGame(Date.now()); // 新しいゲームは現在時刻をシードにする
+    // タイトル画面 → 曲選択へ
+    titleBgm.pause();
+    gameState = "songSelect";
+    resizeCanvas();
+  } else if(gameState === "songSelect"){
+    // 曲選択 → ゲーム開始
+    startGame(Date.now());
   }
 };
   
@@ -1191,8 +1340,16 @@ retryBtn.onclick = ()=>{
   resizeCanvas();
   try{ bgm.pause(); }catch(e){}
   bgm.currentTime = 0;
+  titleBgm.currentTime = 0;
+  titleBgm.play().catch(()=>{});
   permanentScoreBuff = 0;
-  acList.forEach(ac=>{
+  stamina = STAMINA_MAX;
+  damageReduceNotes = 0;
+  skillRateBoostNotes = 0;
+  currentStrategy = "red";
+  strategyChangeCooldown = 0;
+  notesProcessedSinceSwitch = 0;
+  currentSong.acList.forEach(ac=>{
     ac.state = "waiting";
     ac.progress = 0;
     ac.cleared = false;
@@ -1228,8 +1385,8 @@ function update(){
   }
   if (gameState === "playing" && !bgm.paused) {
     const bgmNowSec = bgm.currentTime;
-    while (chartIndex < notesChart.length && bgmNowSec >= notesChart[chartIndex].time) {
-      spawnNote(notesChart[chartIndex].side, chartIndex); 
+    while (chartIndex < currentSong.notesChart.length && bgmNowSec >= currentSong.notesChart[chartIndex].time) {
+      spawnNote(currentSong.notesChart[chartIndex].side, chartIndex); 
       totalNotesSpawned++;
       chartIndex++;
     }
@@ -1237,7 +1394,7 @@ function update(){
   }
   for(const n of notes) n.t++;
   const keep=[];for(const n of notes){if(n.t<=n.duration+5) keep.push(n);else applyMiss('MISS');}notes=keep;
-  if(gameState==="playing" && chartIndex>=notesChart.length && notes.length===0){
+  if(gameState==="playing" && chartIndex>=currentSong.notesChart.length && notes.length===0){
     if(waitingClearFrame === null){
       waitingClearFrame = frame;
     }
@@ -1259,7 +1416,7 @@ function update(){
     resizeCanvas();
     if(score > bestScore) {
       bestScore = score;
-      localStorage.setItem('bestScore', bestScore);
+      localStorage.setItem('bestScore_' + currentSong.id, bestScore);
     }
   }
 
@@ -1267,7 +1424,7 @@ function update(){
   else spFullNotified=false;
   if(spCountdownTimer>0){ spCountdownTimer--; if(spCountdownTimer % 60 === 0){ spCountdownValue = Math.max(0, spCountdownValue-1); } }
   const clearedNotes = chartIndex - notes.length;
-  const targetProgress = notesChart.length>0 ? Math.min(1, clearedNotes / notesChart.length) : 0;
+  const targetProgress = currentSong.notesChart.length>0 ? Math.min(1, clearedNotes / currentSong.notesChart.length) : 0;
   progressDisplay += (targetProgress - progressDisplay) * 0.2;
   skillHistory.forEach(h=>h.life--);skillHistory = skillHistory.filter(h=>h.life>0);
   if(spFlashTimer>0) spFlashTimer--;
@@ -1287,8 +1444,8 @@ function getSimultaneousPairs() {
       const n2 = notes[j];
       if (n2.paired) continue;
       if (n1.chartIdx !== undefined && n2.chartIdx !== undefined) {
-        const ni = notesChart[n1.chartIdx];
-        const nj = notesChart[n2.chartIdx];
+        const ni = currentSong.notesChart[n1.chartIdx];
+        const nj = currentSong.notesChart[n2.chartIdx];
         if (ni && nj && ni.time === nj.time && ni.side !== nj.side) {
           n1.paired = n2.paired = true;
           pairs.push([n1, n2]);
@@ -1345,14 +1502,14 @@ function drawNotes(){
   // 2. 通常ノーツ描画
   for(let i=0;i<notes.length;i++){
     const n = notes[i];
-    const noteInfo = notesChart[n.chartIdx];
+    const noteInfo = currentSong.notesChart[n.chartIdx];
     if(!noteInfo) continue;
     const noteTime = noteInfo.time;
     const idx = n.chartIdx;
 
     // AC区間に入っているか（indexベースで判定）
     let isAcCleared = false;
-    for(const ac of acList){
+    for(const ac of currentSong.acList){
       if(ac.state === "cleared" && ac.startIdx !== -1 && ac.endIdx !== -1 && idx >= ac.startIdx && idx <= ac.endIdx){
         isAcCleared = true;
         break;
@@ -1412,7 +1569,7 @@ function drawNotes(){
     ctx.restore();
 
     // --- START/FINISHラベル ---
-    for(const ac of acList){
+    for(const ac of currentSong.acList){
       if(ac.startIdx === idx){
         ctx.font = `bold ${Math.round(R*0.8)}px system-ui`;
         ctx.textAlign = "center";
@@ -1438,7 +1595,7 @@ function drawNotes(){
 // --- AC通知パネル ---
 function drawACMissionNotice(){
   let nowTime = bgm.currentTime || 0;
-  const ac = acList.find(ac => (ac.state === "active" || ac.state === "cleared") &&
+  const ac = currentSong.acList.find(ac => (ac.state === "active" || ac.state === "cleared") &&
     nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec);
   if(!ac) return;
   // 進捗バーより下で中央より上位置
@@ -1502,12 +1659,12 @@ function drawProgressBarWithAC(){
   ctx.fillRect(x, y, barWidth, barHeight);
 
   // 2. ピンクAC区間
-  let lastNoteTime = notesChart[notesChart.length-1]?.time || 0;
+  let lastNoteTime = currentSong.notesChart[currentSong.notesChart.length-1]?.time || 0;
   let fallbackSongLen = lastNoteTime + noteTravelSec + 3;
   let songLen = (bgm.duration && !isNaN(bgm.duration) && bgm.duration > 1)
     ? bgm.duration
     : fallbackSongLen;
-  for(const ac of acList){
+  for(const ac of currentSong.acList){
     let startRatio = (ac.startTime + noteTravelSec) / songLen;
     let endRatio   = (ac.endTime   + noteTravelSec) / songLen;
     let width      = barWidth * (endRatio - startRatio);
@@ -1784,8 +1941,359 @@ function drawJudgeCountsResult() {
   ctx.restore();
 }
 
+// --- スタミナバー描画 ---
+function drawStaminaBar() {
+  if (gameState !== "playing") return;
+  const cx = cvs.width / 2;
+  const cy = cvs.height - 10;
+  const barRadius = spRadius + 14;
+  const startAngle = Math.PI;
+  const maxAngle = Math.PI * 1.5;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+
+  // 黒縁取り（全体の外枠）
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.arc(cx, cy, barRadius, startAngle, maxAngle, false);
+  ctx.stroke();
+
+  // 背景（黒下地）
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, barRadius, startAngle, maxAngle, false);
+  ctx.stroke();
+
+  // スタミナバー本体
+  const ratio = stamina / STAMINA_MAX;
+  if (ratio > 0) {
+    const endAngle = startAngle + (maxAngle - startAngle) * ratio;
+    let color;
+    if (ratio >= 0.70) color = '#22c55e';
+    else if (ratio >= 0.30) color = '#f97316';
+    else color = '#ef4444';
+
+    // バー本体の縁取り
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 12;
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, barRadius, startAngle, endAngle, false);
+    ctx.stroke();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 8;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, barRadius, startAngle, endAngle, false);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// --- 作戦切り替えアイコン描画 ---
+function drawStrategyIcons() {
+  if (gameState !== "playing") return;
+
+  const iconW = Math.max(60, Math.round(R * 2.0));
+  const iconH = Math.max(80, Math.round(R * 2.7));
+  const centerY = cvs.height / 2;
+  const canSwitch = strategyChangeCooldown === 0;
+
+  // アイコン色（現在の作戦の逆色 — 赤作戦中は緑アイコン、緑作戦中は赤アイコン）
+  const bgColor      = currentStrategy === "red" ? "rgba(10,30,15,0.6)"  : "rgba(30,10,10,0.6)";
+  const chevronColor = currentStrategy === "red" ? "#14532d" : "#5c1a2a";
+  const labelColor   = currentStrategy === "red" ? "#4ade80" : "#f87171";
+  // アイコン下ラベルは「切り替え先」の作戦名を表示
+  const labelText    = currentStrategy === "red" ? "ヒーラー" : "アタッカー";
+  const labelFontSize = Math.max(10, Math.round(R * 0.48));
+
+  const glowColor = `hsl(${(frame * 4) % 360}, 100%, 65%)`;
+
+  // --- 左アイコン（< シェブロン） ---
+  const lx = 0;
+  const ly = centerY - iconH / 2;
+
+  ctx.save();
+  // 背景
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect(lx, ly, iconW, iconH, 8);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // 発光エフェクト（切り替え可能時）
+  if (canSwitch) {
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = glowColor;
+  }
+
+  // シェブロン < （右2点→左頂点の塗りつぶし三角形）
+  ctx.fillStyle = chevronColor;
+  ctx.beginPath();
+  ctx.moveTo(lx + iconW * 0.76, centerY - iconH * 0.29);
+  ctx.lineTo(lx + iconW * 0.24, centerY);
+  ctx.lineTo(lx + iconW * 0.76, centerY + iconH * 0.29);
+  ctx.closePath();
+  ctx.fill();
+
+  // ハイライト線
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 0;
+  ctx.stroke();
+  ctx.restore();
+
+  // ラベル
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.font = `bold ${labelFontSize}px system-ui`;
+  ctx.fillStyle = labelColor;
+  ctx.globalAlpha = 0.9;
+  ctx.fillText(labelText, lx + iconW / 2, ly + iconH + labelFontSize + 2);
+  ctx.restore();
+
+  // --- 右アイコン（> シェブロン） ---
+  const rx = cvs.width - iconW;
+  const ry = centerY - iconH / 2;
+
+  ctx.save();
+  // 背景
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect(rx, ry, iconW, iconH, 8);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // 発光エフェクト（切り替え可能時）
+  if (canSwitch) {
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = glowColor;
+  }
+
+  // シェブロン > （左2点→右頂点の塗りつぶし三角形）
+  ctx.fillStyle = chevronColor;
+  ctx.beginPath();
+  ctx.moveTo(rx + iconW * 0.24, centerY - iconH * 0.29);
+  ctx.lineTo(rx + iconW * 0.76, centerY);
+  ctx.lineTo(rx + iconW * 0.24, centerY + iconH * 0.29);
+  ctx.closePath();
+  ctx.fill();
+
+  // ハイライト線
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 0;
+  ctx.stroke();
+  ctx.restore();
+
+  // ラベル
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.font = `bold ${labelFontSize}px system-ui`;
+  ctx.fillStyle = labelColor;
+  ctx.globalAlpha = 0.9;
+  ctx.fillText(labelText, rx + iconW / 2, ry + iconH + labelFontSize + 2);
+  ctx.restore();
+}
+
+// --- 現在の作戦バッジ描画（進捗バー左下） ---
+function drawCurrentStrategyBadge() {
+  if (gameState !== "playing") return;
+
+  // スライドアニメーション（easing）
+  if (strategyBadgeOffsetX < 0) {
+    strategyBadgeOffsetX += (-strategyBadgeOffsetX) * 0.18 + 1.5;
+    if (strategyBadgeOffsetX > -0.5) strategyBadgeOffsetX = 0;
+  }
+
+  const isRed = currentStrategy === "red";
+  const text = isRed ? "⚔ アタッカー" : "✦ ヒーラー";
+  const colorA = isRed ? "#ff4444" : "#22c55e";
+  const colorB = isRed ? "#991b1b" : "#14532d";
+  const glowCol = isRed ? "rgba(255,80,80,0.7)" : "rgba(34,197,94,0.7)";
+  const fontSize = Math.max(13, Math.round(R * 0.6));
+  const padX = 14, padY = 6;
+  const baseX = 20;
+  const baseY = 28;
+
+  ctx.save();
+  ctx.font = `bold ${fontSize}px system-ui`;
+  const tw = ctx.measureText(text).width;
+  const bw = tw + padX * 2;
+  const bh = fontSize + padY * 2;
+  const x = baseX + strategyBadgeOffsetX;
+  const y = baseY;
+  const r = 6;
+
+  // 外側グロー
+  ctx.shadowColor = glowCol;
+  ctx.shadowBlur = 14;
+
+  // グラデーション背景
+  const grad = ctx.createLinearGradient(x, y, x, y + bh);
+  grad.addColorStop(0, colorA);
+  grad.addColorStop(1, colorB);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(x, y, bw, bh, r);
+  ctx.fill();
+
+  // 上半分ハイライト（光沢）
+  ctx.shadowBlur = 0;
+  const shine = ctx.createLinearGradient(x, y, x, y + bh * 0.5);
+  shine.addColorStop(0, "rgba(255,255,255,0.25)");
+  shine.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = shine;
+  ctx.beginPath();
+  ctx.roundRect(x, y, bw, bh * 0.55, [r, r, 0, 0]);
+  ctx.fill();
+
+  // 枠線
+  ctx.strokeStyle = "rgba(255,255,255,0.45)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(x, y, bw, bh, r);
+  ctx.stroke();
+
+  // テキスト（ドロップシャドウ風）
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(text, x + padX + 1, y + padY + 1);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(text, x + padX, y + padY);
+
+  ctx.textBaseline = "alphabetic";
+  ctx.restore();
+}
+
+function drawSongSelectScreen() {
+  const NUM_CARDS = 3;
+  const gap = Math.round(cvs.width * 0.03);
+  const cardW = Math.round((cvs.width * 0.72) / NUM_CARDS);
+  const jacketSize = Math.round(cardW * 0.72);
+  const titleFontSize = Math.max(11, Math.round(cardW * 0.075));
+  const scoreFontSize = Math.max(10, Math.round(cardW * 0.065));
+  const cardH = jacketSize + titleFontSize + scoreFontSize + 44;
+  const totalW = NUM_CARDS * cardW + (NUM_CARDS - 1) * gap;
+  const startX = Math.round((cvs.width - totalW) / 2);
+  const cardY = Math.round(cvs.height * 0.08);
+
+  // カードデータ（1曲目は実データ、2・3曲目はプレースホルダー）
+  const cards = [
+    { title: SONGS[0].title, jacketEl: document.getElementById(SONGS[0].jacketId), active: true },
+    { title: '？？？', jacketEl: null, active: false },
+    { title: '？？？', jacketEl: null, active: false },
+  ];
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const card = cards[i];
+    const cardX = startX + i * (cardW + gap);
+    const jacketX = Math.round(cardX + (cardW - jacketSize) / 2);
+    const jacketY = cardY + 12;
+
+    // カード背景
+    ctx.save();
+    if (card.active) {
+      ctx.shadowColor = "rgba(57,255,20,0.3)";
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = "rgba(15,23,42,0.92)";
+      ctx.strokeStyle = "rgba(57,255,20,0.55)";
+      ctx.lineWidth = 2;
+    } else {
+      ctx.fillStyle = "rgba(15,23,42,0.5)";
+      ctx.strokeStyle = "rgba(100,116,139,0.35)";
+      ctx.lineWidth = 1;
+    }
+    ctx.beginPath();
+    ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // ジャケット画像
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(jacketX, jacketY, jacketSize, jacketSize, 8);
+    ctx.clip();
+    if (card.jacketEl && card.jacketEl.complete && card.jacketEl.naturalWidth > 0) {
+      ctx.drawImage(card.jacketEl, jacketX, jacketY, jacketSize, jacketSize);
+    } else {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(jacketX, jacketY, jacketSize, jacketSize);
+      ctx.fillStyle = "#475569";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `bold ${Math.round(jacketSize * 0.11)}px system-ui`;
+      ctx.fillText("NO IMAGE", jacketX + jacketSize / 2, jacketY + jacketSize / 2);
+    }
+    ctx.restore();
+
+    const textBaseY = jacketY + jacketSize + 14;
+    const cx = cardX + cardW / 2;
+
+    // 曲タイトル
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = `bold ${titleFontSize}px system-ui`;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "#000";
+    ctx.strokeText(card.title, cx, textBaseY);
+    ctx.fillStyle = card.active ? "#ffffff" : "#64748b";
+    ctx.fillText(card.title, cx, textBaseY);
+
+    // ベストスコア（1曲目のみ）
+    if (card.active) {
+      const bsLabel = `BEST: ${bestScore > 0 ? bestScore.toLocaleString('ja-JP') : '---'}`;
+      ctx.font = `bold ${scoreFontSize}px system-ui`;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#000";
+      ctx.strokeText(bsLabel, cx, textBaseY + titleFontSize + 8);
+      ctx.fillStyle = "#ffd700";
+      ctx.fillText(bsLabel, cx, textBaseY + titleFontSize + 8);
+    }
+    ctx.restore();
+  }
+}
+
 function render(){
    ctx.clearRect(0,0,cvs.width,cvs.height);
+
+  // --- タイトル画面 ---
+  if(gameState==="init"){
+    if(titleImg.complete && titleImg.naturalWidth > 0) {
+      ctx.drawImage(titleImg, 0, 0, cvs.width, cvs.height);
+    } else {
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0,0,cvs.width,cvs.height);
+    }
+    return;
+  }
+
+  // --- 曲選択画面 ---
+  if(gameState==="songSelect"){
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0,0,cvs.width,cvs.height);
+    if(bgimg.complete && bgimg.naturalWidth > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      ctx.drawImage(bgimg, 0, 0, cvs.width, cvs.height);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+    drawSongSelectScreen();
+    return;
+  }
+
   // 背景画像（30%不透明度）をcanvas全体に描画
   if(bgimg.complete && bgimg.naturalWidth > 0) {
     ctx.save();
@@ -1798,11 +2306,16 @@ function render(){
     ctx.fillRect(0,0,cvs.width,cvs.height);
   }
   
+  if(gameState!=="countdown" && gameState!=="playing" && gameState!=="clear" && gameState!=="result") return;
+
   drawProgressBarWithAC();
   drawTargets();
   drawNotes();
   drawHitRings();
   drawSPGauge();
+  drawStaminaBar();
+  drawStrategyIcons();
+  drawCurrentStrategyBadge();
   drawPopups();
   drawUI();
   drawOverlays();
@@ -1811,7 +2324,6 @@ function render(){
   drawACMissionNotice();
   drawACFailFlash();
   
-  if(gameState==="init"){ return; }
   if(gameState==="countdown"){
     const txt = countdownValue>0 ? countdownValue : 1;
     ctx.textAlign='center';
