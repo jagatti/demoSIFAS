@@ -332,8 +332,31 @@ const bgimg = document.getElementById('bgimg');
 const titleImg = document.getElementById('titleImg');
 const jacketImg = document.getElementById('jacketImg');
 const titleBgm = document.getElementById('titleBgm');
-bgm.volume = 0.1;
-titleBgm.volume = 0.1;
+// --- ユーザー設定 (localStorage永続化) ---
+let settingsVolume      = parseFloat(localStorage.getItem('settings_volume')        ?? '0.1');
+let settingsNoteSpeed   = parseInt(localStorage.getItem('settings_noteSpeed')       ?? '55', 10);
+let settingsTimingOffset= parseFloat(localStorage.getItem('settings_timingOffset')  ?? '0');
+let settingsSE          = localStorage.getItem('settings_se') !== 'off';
+// 値域クランプ
+settingsVolume       = Math.max(0, Math.min(1, settingsVolume));
+settingsNoteSpeed    = Math.max(30, Math.min(90, settingsNoteSpeed));
+settingsTimingOffset = Math.max(-0.3, Math.min(0.3, settingsTimingOffset));
+
+// --- BGM 音量制御（Web Audio API GainNode、iOS Safari 対応） ---
+// GainNode 変数は loadTapSE() 内で接続される
+let bgmGain = null;
+let titleBgmGain = null;
+
+function applyVolume(vol) {
+  if (bgmGain)      bgmGain.gain.value      = vol;
+  else              bgm.volume              = vol;
+  if (titleBgmGain) titleBgmGain.gain.value = vol;
+  else              titleBgm.volume         = vol;
+}
+
+bgm.volume = settingsVolume;
+titleBgm.volume = settingsVolume;
+// Web Audio 未接続時のフォールバック用（接続後は applyVolume で制御）
 
 // --- JSONP ---
 function jsonp(url, timeoutMs = 8000) {
@@ -427,6 +450,148 @@ rankingBtn.style.letterSpacing = '0.04em';
 rankingBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.4)';
 rankingBtn.style.zIndex = '100';
 rankingBtn.style.display = 'none';
+
+// --- 設定ボタン ---
+let settingsBtn = document.getElementById('settingsBtn');
+if (!settingsBtn) {
+  settingsBtn = document.createElement('button');
+  settingsBtn.id = 'settingsBtn';
+  settingsBtn.textContent = '⚙';
+  document.body.appendChild(settingsBtn);
+}
+settingsBtn.style.position = 'absolute';
+settingsBtn.style.top = '16px';
+settingsBtn.style.right = '18px';
+settingsBtn.style.padding = '0.3em 0.65em';
+settingsBtn.style.fontSize = '1.25rem';
+settingsBtn.style.backgroundColor = '#1e293b';
+settingsBtn.style.color = 'white';
+settingsBtn.style.border = '1px solid rgba(255,255,255,0.18)';
+settingsBtn.style.borderRadius = '8px';
+settingsBtn.style.cursor = 'pointer';
+settingsBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.4)';
+settingsBtn.style.zIndex = '110';
+settingsBtn.style.display = 'none';
+settingsBtn.title = '設定';
+
+// --- 設定モーダル ---
+let settingsModal = document.getElementById('settingsModal');
+if (!settingsModal) {
+  settingsModal = document.createElement('div');
+  settingsModal.id = 'settingsModal';
+  settingsModal.style.position = 'absolute';
+  settingsModal.style.left = '50%';
+  settingsModal.style.top = '50%';
+  settingsModal.style.transform = 'translate(-50%, -50%)';
+  settingsModal.style.minWidth = '340px';
+  settingsModal.style.maxWidth = '90vw';
+  settingsModal.style.background = 'rgba(10,14,28,0.96)';
+  settingsModal.style.color = '#fff';
+  settingsModal.style.border = '1px solid rgba(255,255,255,0.22)';
+  settingsModal.style.borderRadius = '12px';
+  settingsModal.style.padding = '20px 24px 18px';
+  settingsModal.style.zIndex = '9999';
+  settingsModal.style.display = 'none';
+  settingsModal.style.boxShadow = '0 8px 40px rgba(0,0,0,0.7)';
+  settingsModal.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="font-weight:800;font-size:17px;letter-spacing:0.05em;">⚙ 設定</div>
+      <button id="settingsCloseBtn"
+        style="padding:5px 11px;background:#1e293b;color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:7px;cursor:pointer;font-size:0.9rem;">
+        閉じる
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <!-- 音量 -->
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:14px;">
+          <span>🔊 音量</span>
+          <span id="settingsVolumeVal" style="font-weight:700;">${Math.round(settingsVolume * 100)}%</span>
+        </div>
+        <input id="settingsVolumeSlider" type="range" min="0" max="100" step="1"
+          value="${Math.round(settingsVolume * 100)}"
+          style="width:100%;accent-color:#6366f1;cursor:pointer;">
+      </div>
+      <!-- ノーツ速度 -->
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:14px;">
+          <span>🎵 ノーツ速度</span>
+          <span id="settingsSpeedVal" style="font-weight:700;">${settingsNoteSpeed}</span>
+        </div>
+        <input id="settingsSpeedSlider" type="range" min="30" max="90" step="1"
+          value="${settingsNoteSpeed}"
+          style="width:100%;accent-color:#6366f1;cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;opacity:0.5;margin-top:3px;">
+          <span>速い</span><span>遅い</span>
+        </div>
+      </div>
+      <!-- ノーツタイミング -->
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:14px;">
+          <span>⏱ タイミング補正</span>
+          <span id="settingsTimingVal" style="font-weight:700;">${settingsTimingOffset >= 0 ? '+' : ''}${(settingsTimingOffset * 1000).toFixed(0)}ms</span>
+        </div>
+        <input id="settingsTimingSlider" type="range" min="-300" max="300" step="10"
+          value="${Math.round(settingsTimingOffset * 1000)}"
+          style="width:100%;accent-color:#6366f1;cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;opacity:0.5;margin-top:3px;">
+          <span>早く</span><span>遅く</span>
+        </div>
+      </div>
+      <!-- SE -->
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:14px;">
+        <span>🎹 タップSE</span>
+        <button id="settingsSEBtn"
+          style="padding:5px 14px;background:${settingsSE ? '#6366f1' : '#1e293b'};color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:7px;cursor:pointer;font-size:0.85rem;min-width:56px;">
+          ${settingsSE ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(settingsModal);
+
+  settingsModal.querySelector('#settingsCloseBtn').onclick = () => {
+    settingsModal.style.display = 'none';
+  };
+
+  // 音量スライダー
+  settingsModal.querySelector('#settingsVolumeSlider').oninput = (e) => {
+    settingsVolume = e.target.value / 100;
+    settingsModal.querySelector('#settingsVolumeVal').textContent = Math.round(settingsVolume * 100) + '%';
+    applyVolume(settingsVolume);
+    localStorage.setItem('settings_volume', settingsVolume);
+  };
+
+  // ノーツ速度スライダー
+  settingsModal.querySelector('#settingsSpeedSlider').oninput = (e) => {
+    settingsNoteSpeed = parseInt(e.target.value, 10);
+    noteDuration = settingsNoteSpeed;
+    noteTravelSec = noteDuration / 60;
+    settingsModal.querySelector('#settingsSpeedVal').textContent = settingsNoteSpeed;
+    localStorage.setItem('settings_noteSpeed', settingsNoteSpeed);
+  };
+
+  // タイミング補正スライダー
+  settingsModal.querySelector('#settingsTimingSlider').oninput = (e) => {
+    settingsTimingOffset = parseInt(e.target.value, 10) / 1000;
+    const ms = Math.round(settingsTimingOffset * 1000);
+    settingsModal.querySelector('#settingsTimingVal').textContent = (ms >= 0 ? '+' : '') + ms + 'ms';
+    localStorage.setItem('settings_timingOffset', settingsTimingOffset);
+  };
+
+  // SE ON/OFF ボタン
+  settingsModal.querySelector('#settingsSEBtn').onclick = () => {
+    settingsSE = !settingsSE;
+    const btn = settingsModal.querySelector('#settingsSEBtn');
+    btn.textContent = settingsSE ? 'ON' : 'OFF';
+    btn.style.background = settingsSE ? '#6366f1' : '#1e293b';
+    localStorage.setItem('settings_se', settingsSE ? 'on' : 'off');
+  };
+}
+
+settingsBtn.onclick = () => {
+  settingsModal.style.display = settingsModal.style.display === 'none' ? 'block' : 'none';
+};
 
 let rankingModal = document.getElementById('rankingModal');
 if (!rankingModal) {
@@ -585,7 +750,7 @@ let lastGameSeed = 0; // 直前のゲームのシードを保存
 
 // --- グローバル変数 ---
 let chartIndex = 0, R=30, leftTarget={x:0,y:0,r:0}, rightTarget={x:0,y:0,r:0}, spRadius=80;
-let SP_MAX=6000, spValue=0, spFullNotified=false, score=0, combo=0, notes=[], frame=0, noteDuration=55;
+let SP_MAX=6000, spValue=0, spFullNotified=false, score=0, combo=0, notes=[], frame=0, noteDuration=settingsNoteSpeed;
 let bestScore = Number(localStorage.getItem('bestScore_' + currentSong.id)) || 0;
 let spFlashTimer=0, spRingTimer=0, spRingSpeed=20, spRingRange=40, spBoostTimer=0, spCountdownTimer=0, spCountdownValue=0;
 let popups=[], hitRings=[], lastInputWasTouch=false;
@@ -608,13 +773,30 @@ const STRATEGY_CHANGE_NOTES = 5;
 let notesProcessedSinceSwitch = 0;
 let strategyBadgeOffsetX = 0; // バッジスライドアニメーション用（0=定位置、負=画面外左）
   
-// ノーツ到達までの秒数
-const noteTravelSec = noteDuration / 60;
+// ノーツ到達までの秒数（デフォルト55フレーム固定：AC判定・進捗バーの基準）
+const DEFAULT_NOTE_TRAVEL_SEC = 55 / 60;
+// 現在のノーツ速度によるビジュアル到達時間（スポーン補正のみに使用）
+let noteTravelSec = noteDuration / 60;
   
 // --- 効果音ロード ---
 async function loadTapSE() {
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // bgm / titleBgm を GainNode 経由でルーティング（iOS Safari 音量対応）
+    try {
+      const bs = audioContext.createMediaElementSource(bgm);
+      bgmGain = audioContext.createGain();
+      bgmGain.gain.value = settingsVolume;
+      bs.connect(bgmGain);
+      bgmGain.connect(audioContext.destination);
+      const ts = audioContext.createMediaElementSource(titleBgm);
+      titleBgmGain = audioContext.createGain();
+      titleBgmGain.gain.value = settingsVolume;
+      ts.connect(titleBgmGain);
+      titleBgmGain.connect(audioContext.destination);
+    } catch(e) {
+      console.warn('Web Audio BGM routing failed:', e);
+    }
   }
   await audioContext.resume();
   if (!tapBuffer) {
@@ -689,7 +871,7 @@ function applyNoteDamage(nowTime) {
 
 // 効果音再生
 function playTapSE() {
-  if (!tapBuffer) return;
+  if (!tapBuffer || !settingsSE) return;
   const source = audioContext.createBufferSource();
   source.buffer = tapBuffer;
   source.connect(audioContext.destination);
@@ -705,8 +887,8 @@ function playTapSE() {
 // --- AC取得関数 ---
 function getActiveACByTime(nowTime) {
   return currentSong.acList.find(ac =>
-    (ac.state === "active" || (ac.state === "cleared" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec))
-    && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec
+    (ac.state === "active" || (ac.state === "cleared" && nowTime >= ac.startTime + DEFAULT_NOTE_TRAVEL_SEC && nowTime <= ac.endTime + DEFAULT_NOTE_TRAVEL_SEC))
+    && nowTime >= ac.startTime + DEFAULT_NOTE_TRAVEL_SEC && nowTime <= ac.endTime + DEFAULT_NOTE_TRAVEL_SEC
   );
 }
 function isACActiveByTime(nowTime) {
@@ -714,7 +896,7 @@ function isACActiveByTime(nowTime) {
 }
 function isACClearedNowByTime(nowTime) {
   return !!currentSong.acList.find(ac =>
-    ac.state === "cleared" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec
+    ac.state === "cleared" && nowTime >= ac.startTime + DEFAULT_NOTE_TRAVEL_SEC && nowTime <= ac.endTime + DEFAULT_NOTE_TRAVEL_SEC
   );
 }
   
@@ -729,6 +911,7 @@ function resizeCanvas(){
     reseedBtn.style.display='none';
     rankingBtn.style.display = 'none';
   　saveScoreBtn.style.display = 'none';
+    settingsBtn.style.display = 'none';
     return;
   }
   rotateMsg.style.display='none';
@@ -736,6 +919,8 @@ function resizeCanvas(){
   // ランキングボタンはタイトル画面のみ表示（曲選択画面では非表示）
   rankingBtn.style.display = (gameState === "init") ? 'block' : 'none';
 　saveScoreBtn.style.display = (gameState === "result") ? 'block' : 'none';
+  // 設定ボタンはタイトル画面のみ表示
+  settingsBtn.style.display = (gameState === "init") ? 'block' : 'none';
   startBtn.style.display = (gameState === "init" || gameState === "songSelect") ? 'block' : 'none';
   startBtn.textContent = gameState === "songSelect" ? 'PLAY' : 'S.T.A.R.T!!';
   if(gameState==="result") {
@@ -796,7 +981,7 @@ function updateACOnTap(pointsWithCombo, nowTime) {
   noteCounter++;
   currentSong.acList.forEach(ac => {
     
-    if (ac.state === "active" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec) {
+    if (ac.state === "active" && nowTime >= ac.startTime + DEFAULT_NOTE_TRAVEL_SEC && nowTime <= ac.endTime + DEFAULT_NOTE_TRAVEL_SEC) {
       if (ac.type === "score") {
         ac.tapScore += pointsWithCombo;
         ac.progress = ac.tapScore + ac.spScore;
@@ -819,7 +1004,7 @@ function updateACOnTap(pointsWithCombo, nowTime) {
     // --- AC失敗判定と赤フラッシュ演出 ---
     if (
       ac.state === "active" &&
-      nowTime > ac.endTime + noteTravelSec && // AC時間を過ぎた
+      nowTime > ac.endTime + DEFAULT_NOTE_TRAVEL_SEC && // AC時間を過ぎた
       !ac.cleared             // まだクリアしてない
     ) {
       ac.state = "ended";
@@ -834,7 +1019,7 @@ function updateACOnTap(pointsWithCombo, nowTime) {
 function updateACOnSPUse(nowTime, spScore) {
   totalSPUsed++;
   currentSong.acList.forEach(ac => {
-    if (ac.state === "active" && nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec) {
+    if (ac.state === "active" && nowTime >= ac.startTime + DEFAULT_NOTE_TRAVEL_SEC && nowTime <= ac.endTime + DEFAULT_NOTE_TRAVEL_SEC) {
       if (ac.type === "sp") {
         ac.progress += 1;
         if (!ac.cleared && ac.progress >= ac.target) {
@@ -984,11 +1169,11 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
         skillHistory.unshift({text:`[アピール増加 12%]`, life:180});
       }
     } else {
-      // --- 緑作戦（ヒーラー）特技 ---
+      // --- 青作戦（ヒーラー）特技 ---
       if (skillType === 0) {
         if (stamina > 0) {
-          stamina = Math.min(STAMINA_MAX, stamina + 3000);
-          skillHistory.unshift({text: '[スタミナ回復 3000]', life: 180});
+          stamina = Math.min(STAMINA_MAX, stamina + 2000);
+          skillHistory.unshift({text: '[スタミナ回復 2000]', life: 180});
         }
       } else if (skillType === 1) {
         damageReduceNotes += 3;
@@ -1143,6 +1328,11 @@ function handlePointer(e){
   const scaleX = cvs.width / rect.width;
   const scaleY = cvs.height / rect.height;
 
+  // 作戦アイコンの当たり判定サイズ（両ループで共用）
+  const iconW = Math.max(60, Math.round(R * 2.0));
+  const iconH = Math.max(80, Math.round(R * 2.7));
+  const iconCY = cvs.height / 2;
+
   // changedTouches: 今回新しく押された指のみ
   const newPoints = isTouch ? Array.from(e.changedTouches) : [e];
   let noteFingers = 0;
@@ -1152,9 +1342,6 @@ function handlePointer(e){
     const ty = (t.clientY - rect.top) * scaleY;
 
     // 作戦切り替えアイコン判定
-    const iconW = Math.max(60, Math.round(R * 2.0));
-    const iconH = Math.max(80, Math.round(R * 2.7));
-    const iconCY = cvs.height / 2;
     if (strategyChangeCooldown === 0 &&
         ty >= iconCY - iconH / 2 && ty <= iconCY + iconH / 2 &&
         (tx <= iconW || tx >= cvs.width - iconW)) {
@@ -1162,13 +1349,13 @@ function handlePointer(e){
       strategyChangeCooldown = STRATEGY_CHANGE_NOTES;
       notesProcessedSinceSwitch = 0;
       strategyBadgeOffsetX = -300; // バッジを左画面外から登場させる
-      const strategyName = currentStrategy === "red" ? "赤作戦（アタッカー）" : "緑作戦（ヒーラー）";
+      const strategyName = currentStrategy === "red" ? "赤作戦（アタッカー）" : "青作戦（ヒーラー）";
       skillHistory.unshift({text: `[${strategyName}に切り替え]`, life: 180});
       if (skillHistory.length > 5) skillHistory.pop();
       continue;
     }
 
-    // SP半円判定
+    // SP半円判定（SP専用操作なのでノーツ判定には含めない）
     if (isInSPSemicircle(tx, ty)) {
       if (spValue >= SP_MAX) tryUseSP(tx, ty);
       continue;
@@ -1179,10 +1366,24 @@ function handlePointer(e){
 
   if (noteFingers === 0) return;
 
-  // 全タッチ数（既存指も含む）でペア判定を決定
-  const totalFingers = isTouch ? e.touches.length : 1;
+  // ペア/シングル分岐は「現在画面に触れている全指」からSP・作戦アイコン指を除いた数で決定する。
+  // changedTouches（新規指のみ）ではなく e.touches（全アクティブ指）を使うことで、
+  // 2本指をわずかにずらして押した場合（= 2回の touchstart が別々に発火する場合）でも
+  // 正しくペアノーツ判定に入れる。また SP 押しっぱなし中も SP 指を除外するため誤判定しない。
+  let activeNoteFingers = 1; // マウスはタッチなし扱い(常に1)
+  if (isTouch) {
+    activeNoteFingers = 0;
+    for (const t of e.touches) {
+      const tx2 = (t.clientX - rect.left) * scaleX;
+      const ty2 = (t.clientY - rect.top) * scaleY;
+      if (isInSPSemicircle(tx2, ty2)) continue;
+      if (ty2 >= iconCY - iconH / 2 && ty2 <= iconCY + iconH / 2 &&
+          (tx2 <= iconW || tx2 >= cvs.width - iconW)) continue;
+      activeNoteFingers++;
+    }
+  }
 
-  if (totalFingers >= 2) {
+  if (activeNoteFingers >= 2) {
     const pairs = getSimultaneousPairsInNotes(); // [[nL, nR], ...]
     for (const [nL, nR] of pairs) {
       let right = nL, left = nR;
@@ -1209,7 +1410,7 @@ function handlePointer(e){
     return;
   }
 
-  // 1本指時は単発ノーツのみ左右順に判定
+  // 1本指時は単発ノーツのみ、最もターゲットに近い1つのみ判定（誤って複数消費しないよう）
   function isNotPairNote(n){
     return !notes.some(other =>
       other !== n &&
@@ -1219,35 +1420,20 @@ function handlePointer(e){
   }
   let targetNotes = notes.filter(isNotPairNote);
 
-  let bestL = null, bestDistL = Infinity;
+  let best = null, bestDist = Infinity, bestTarget = null;
   for(const n of targetNotes){
-    if(n.side !== 'left') continue;
+    const target = n.side === 'left' ? leftTarget : (n.side === 'right' ? rightTarget : null);
+    if(!target) continue;
     const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
-    const dist = Math.hypot(pos.x-leftTarget.x, pos.y-leftTarget.y);
-    if(dist < bestDistL){ bestDistL = dist; bestL = n; }
+    const dist = Math.hypot(pos.x - target.x, pos.y - target.y);
+    if(dist < bestDist){ bestDist = dist; best = n; bestTarget = target; }
   }
-  if(bestL){
+  if(best){
     const baseRaw = calcTapBase();
-    const res = calcTapScoreAndLabel(bestDistL, baseRaw);
+    const res = calcTapScoreAndLabel(bestDist, baseRaw);
     if(res.label !== 'MISS'){
-      awardHit(leftTarget, res.points, res.label, res.reset, baseRaw, bestL.chartIdx);
-      notes = notes.filter(n => n !== bestL);
-    }
-  }
-
-  let bestR = null, bestDistR = Infinity;
-  for(const n of targetNotes){
-    if(n.side !== 'right') continue;
-    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
-    const dist = Math.hypot(pos.x-rightTarget.x, pos.y-rightTarget.y);
-    if(dist < bestDistR){ bestDistR = dist; bestR = n; }
-  }
-  if(bestR){
-    const baseRaw = calcTapBase();
-    const res = calcTapScoreAndLabel(bestDistR, baseRaw);
-    if(res.label !== 'MISS'){
-      awardHit(rightTarget, res.points, res.label, res.reset, baseRaw, bestR.chartIdx);
-      notes = notes.filter(n => n !== bestR);
+      awardHit(bestTarget, res.points, res.label, res.reset, baseRaw, best.chartIdx);
+      notes = notes.filter(n => n !== best);
     }
   }
 }
@@ -1375,7 +1561,7 @@ function update(){
           gameState="playing";
           frame = 0;
           bgm.currentTime = 0;
-          bgm.volume = 0.10;
+          applyVolume(settingsVolume);
           bgm.play().catch(()=>{});
         },1000);
       }
@@ -1385,7 +1571,7 @@ function update(){
   }
   if (gameState === "playing" && !bgm.paused) {
     const bgmNowSec = bgm.currentTime;
-    while (chartIndex < currentSong.notesChart.length && bgmNowSec >= currentSong.notesChart[chartIndex].time) {
+    while (chartIndex < currentSong.notesChart.length && bgmNowSec >= currentSong.notesChart[chartIndex].time + DEFAULT_NOTE_TRAVEL_SEC - noteTravelSec + settingsTimingOffset) {
       spawnNote(currentSong.notesChart[chartIndex].side, chartIndex); 
       totalNotesSpawned++;
       chartIndex++;
@@ -1403,8 +1589,9 @@ function update(){
       clearStartFrame=frame;
       waitingClearFrame = null;
       let fadeOut = setInterval(() => {
-        if (bgm.volume > 0.02) { bgm.volume -= 0.02; }
-        else { bgm.pause(); bgm.currentTime = 0; clearInterval(fadeOut); bgm.volume = 0.10; }
+        const curVol = bgmGain ? bgmGain.gain.value : bgm.volume;
+        if (curVol > 0.02) { applyVolume(curVol - 0.02); }
+        else { bgm.pause(); bgm.currentTime = 0; clearInterval(fadeOut); applyVolume(settingsVolume); }
       }, 50);
     }
   } else {
@@ -1596,7 +1783,7 @@ function drawNotes(){
 function drawACMissionNotice(){
   let nowTime = bgm.currentTime || 0;
   const ac = currentSong.acList.find(ac => (ac.state === "active" || ac.state === "cleared") &&
-    nowTime >= ac.startTime + noteTravelSec && nowTime <= ac.endTime + noteTravelSec);
+    nowTime >= ac.startTime + DEFAULT_NOTE_TRAVEL_SEC && nowTime <= ac.endTime + DEFAULT_NOTE_TRAVEL_SEC);
   if(!ac) return;
   // 進捗バーより下で中央より上位置
   const barMarginLeft = 20;
@@ -1660,13 +1847,13 @@ function drawProgressBarWithAC(){
 
   // 2. ピンクAC区間
   let lastNoteTime = currentSong.notesChart[currentSong.notesChart.length-1]?.time || 0;
-  let fallbackSongLen = lastNoteTime + noteTravelSec + 3;
+  let fallbackSongLen = lastNoteTime + DEFAULT_NOTE_TRAVEL_SEC + 3;
   let songLen = (bgm.duration && !isNaN(bgm.duration) && bgm.duration > 1)
     ? bgm.duration
     : fallbackSongLen;
   for(const ac of currentSong.acList){
-    let startRatio = (ac.startTime + noteTravelSec) / songLen;
-    let endRatio   = (ac.endTime   + noteTravelSec) / songLen;
+    let startRatio = (ac.startTime + DEFAULT_NOTE_TRAVEL_SEC) / songLen;
+    let endRatio   = (ac.endTime   + DEFAULT_NOTE_TRAVEL_SEC) / songLen;
     let width      = barWidth * (endRatio - startRatio);
     if(isNaN(startRatio) || isNaN(endRatio) || width <= 0) continue;
     ctx.fillStyle = "#ff69b4";
