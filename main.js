@@ -435,12 +435,12 @@ if (!rankingBtn) {
   document.body.appendChild(rankingBtn);
 }
 rankingBtn.style.position = 'absolute';
-rankingBtn.style.left = '50%';
-rankingBtn.style.transform = 'translateX(-50%)';
-rankingBtn.style.right = 'auto';
+rankingBtn.style.right = '12px';
+rankingBtn.style.left = 'auto';
+rankingBtn.style.transform = 'none';
 rankingBtn.style.top = 'auto';
-rankingBtn.style.padding = '0.45em 2em';
-rankingBtn.style.fontSize = '0.95rem';
+rankingBtn.style.padding = '0.4em 1.1em';
+rankingBtn.style.fontSize = '0.82rem';
 rankingBtn.style.backgroundColor = '#1e293b';
 rankingBtn.style.color = 'white';
 rankingBtn.style.border = '1px solid rgba(255,255,255,0.18)';
@@ -686,6 +686,149 @@ function escapeHtml_(s) {
     .replaceAll("'", '&#39;');
 }
 
+// --- チュートリアルボタン ---
+let tutorialBtn = document.getElementById('tutorialBtn');
+if (!tutorialBtn) {
+  tutorialBtn = document.createElement('button');
+  tutorialBtn.id = 'tutorialBtn';
+  tutorialBtn.textContent = 'あそびかた';
+  document.body.appendChild(tutorialBtn);
+}
+tutorialBtn.style.position = 'absolute';
+tutorialBtn.style.right = '12px';
+tutorialBtn.style.left = 'auto';
+tutorialBtn.style.transform = 'none';
+tutorialBtn.style.top = 'auto';
+tutorialBtn.style.padding = '0.4em 1.1em';
+tutorialBtn.style.fontSize = '0.82rem';
+tutorialBtn.style.backgroundColor = '#1e293b';
+tutorialBtn.style.color = 'white';
+tutorialBtn.style.border = '1px solid rgba(255,255,255,0.18)';
+tutorialBtn.style.borderRadius = '8px';
+tutorialBtn.style.cursor = 'pointer';
+tutorialBtn.style.letterSpacing = '0.04em';
+tutorialBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.4)';
+tutorialBtn.style.zIndex = '100';
+tutorialBtn.style.display = 'none';
+
+// --- チュートリアルモーダル ---
+const TUTORIAL_PAGES = [
+  {
+    title: '🎵 基本ルール',
+    body: `画面に流れてくる「ノーツ」を<br>タイミングよくタップして<br>スコアを稼ごう！<br><br>
+           判定は良い順に<br><b>CRITICAL → WONDERFUL → GREAT → NICE → BAD → MISS</b><br><br>
+           コンボが続くほど獲得スコアがアップ！`
+  },
+  {
+    title: '👆 ノーツのタップ',
+    body: `ノーツは画面<b>左右</b>のターゲットに向かって流れてくる。<br><br>
+           ▶ <b>左ノーツ</b>：画面左半分をタップ<br>
+           ▶ <b>右ノーツ</b>：画面右半分をタップ<br><br>
+           ターゲットに近いほど高得点！<br><br>
+           <b>【PC】</b>　<kbd>Z</kbd>キー = 左　／　<kbd>X</kbd>キー = 右`
+  },
+  {
+    title: '✌️ 同時押し（ペアノーツ）',
+    body: `左右に同時に出るノーツは<br><b>2本指で同時タップ</b>すると両方判定！<br><br>
+           片方だけ叩くと、もう片方はMISSになるので注意。<br><br>
+           <b>【PC】</b>　<kbd>Z</kbd>＋<kbd>X</kbd>を同時押し`
+  },
+  {
+    title: '⚡ SPゲージ',
+    body: `ノーツを叩くとSPゲージが溜まる。<br><br>
+           ゲージが<b>MAX</b>になると画面下の半円が光る。<br>その半円を<b>タップ</b>するとSPスキルを発動！<br><br>
+           一気に大きなスコアが加算されるぞ！<br><br>
+           <b>【PC】</b>　<kbd>Ctrl</kbd>キーで発動`
+  },
+  {
+    title: '🎯 作戦切り替え',
+    body: `画面の左右端にある<b>作戦アイコン</b>をタップすると<br>作戦を切り替えられる。<br><br>
+           🔴 <b>赤作戦（アタッカー）</b>：スコア重視の特技発動<br>
+           🟢 <b>緑作戦（ヒーラー）</b>：スタミナ回復の特技発動<br><br>
+           スタミナが減ってきたら緑作戦に切り替えよう！<br><br>
+           <b>【PC】</b>　<kbd>Shift</kbd>キーで切り替え`
+  },
+  {
+    title: '🌟 アピールチャンス（AC）',
+    body: `曲の特定パートに<b>アピールチャンス（AC）</b>が発生！<br><br>
+           ACミッションを達成すると<br>ボーナスとして<b>大量スコア・SPゲージ</b>が獲得できる。<br><br>
+           ACはすべてクリアを目指そう！`
+  },
+  {
+    title: '💡 まとめ',
+    body: `① ノーツをタイミングよく叩いてコンボをつなげる<br>
+           ② SPゲージが溜まったらすかさず発動！<br>
+           ③ スタミナに気をつけて作戦を切り替える<br>
+           ④ ACミッションを全クリアしてハイスコアを狙え！<br><br>
+           <b>さあ、ランキング上位を目指してみよう！</b>`
+  }
+];
+let tutorialPage = 0;
+
+let tutorialModal = document.getElementById('tutorialModal');
+if (!tutorialModal) {
+  tutorialModal = document.createElement('div');
+  tutorialModal.id = 'tutorialModal';
+  tutorialModal.style.position = 'absolute';
+  tutorialModal.style.left = '50%';
+  tutorialModal.style.top = '50%';
+  tutorialModal.style.transform = 'translate(-50%, -50%)';
+  tutorialModal.style.width = 'min(420px, 92vw)';
+  tutorialModal.style.background = 'rgba(10,14,28,0.97)';
+  tutorialModal.style.color = '#fff';
+  tutorialModal.style.border = '1px solid rgba(255,255,255,0.22)';
+  tutorialModal.style.borderRadius = '14px';
+  tutorialModal.style.padding = '14px 16px 12px';
+  tutorialModal.style.maxHeight = 'min(88vh, 400px)';
+  tutorialModal.style.flexDirection = 'column';
+  tutorialModal.style.zIndex = '9999';
+  tutorialModal.style.display = 'none';
+  tutorialModal.style.boxShadow = '0 8px 40px rgba(0,0,0,0.75)';
+  document.body.appendChild(tutorialModal);
+}
+
+function renderTutorialPage() {
+  const p = TUTORIAL_PAGES[tutorialPage];
+  const total = TUTORIAL_PAGES.length;
+  tutorialModal.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;">
+      <div style="font-weight:800;font-size:14px;letter-spacing:0.04em;">${p.title}</div>
+      <button id="tutorialCloseBtn"
+        style="padding:3px 9px;background:#1e293b;color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:7px;cursor:pointer;font-size:0.85rem;">
+        ✕
+      </button>
+    </div>
+    <div style="font-size:12.5px;line-height:1.65;overflow-y:auto;flex:1;min-height:0;max-height:220px;padding-right:2px;">${p.body}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-shrink:0;">
+      <button id="tutorialPrevBtn"
+        style="padding:5px 14px;background:#1e293b;color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:7px;cursor:pointer;font-size:0.82rem;${tutorialPage === 0 ? 'opacity:0.3;pointer-events:none;' : ''}">
+        ◀ 前へ
+      </button>
+      <span style="font-size:11px;opacity:0.6;">${tutorialPage + 1} / ${total}</span>
+      <button id="tutorialNextBtn"
+        style="padding:5px 14px;background:${tutorialPage === total - 1 ? '#6366f1' : '#1e293b'};color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:7px;cursor:pointer;font-size:0.82rem;">
+        ${tutorialPage === total - 1 ? 'とじる ▶' : '次へ ▶'}
+      </button>
+    </div>
+  `;
+  tutorialModal.style.display = 'flex';
+  tutorialModal.querySelector('#tutorialCloseBtn').onclick = () => {
+    tutorialModal.style.display = 'none';
+  };
+  tutorialModal.querySelector('#tutorialPrevBtn').onclick = () => {
+    if (tutorialPage > 0) { tutorialPage--; renderTutorialPage(); }
+  };
+  tutorialModal.querySelector('#tutorialNextBtn').onclick = () => {
+    if (tutorialPage < total - 1) { tutorialPage++; renderTutorialPage(); }
+    else { tutorialModal.style.display = 'none'; }
+  };
+}
+
+tutorialBtn.onclick = () => {
+  tutorialPage = 0;
+  renderTutorialPage();
+};
+
 rankingBtn.onclick = async () => {
   try {
     const res = await fetchTopScores();
@@ -702,6 +845,84 @@ rankingBtn.onclick = async () => {
   } catch (e) {
     alert('ランキング取得に失敗しました: ' + e.message);
   }
+};
+
+// --- クレジットボタン ---
+let creditsBtn = document.getElementById('creditsBtn');
+if (!creditsBtn) {
+  creditsBtn = document.createElement('button');
+  creditsBtn.id = 'creditsBtn';
+  creditsBtn.textContent = 'クレジット';
+  document.body.appendChild(creditsBtn);
+}
+creditsBtn.style.position = 'absolute';
+creditsBtn.style.right = '12px';
+creditsBtn.style.left = 'auto';
+creditsBtn.style.transform = 'none';
+creditsBtn.style.top = 'auto';
+creditsBtn.style.padding = '0.4em 1.1em';
+creditsBtn.style.fontSize = '0.82rem';
+creditsBtn.style.backgroundColor = '#1e293b';
+creditsBtn.style.color = 'white';
+creditsBtn.style.border = '1px solid rgba(255,255,255,0.18)';
+creditsBtn.style.borderRadius = '8px';
+creditsBtn.style.cursor = 'pointer';
+creditsBtn.style.letterSpacing = '0.04em';
+creditsBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.4)';
+creditsBtn.style.zIndex = '100';
+creditsBtn.style.display = 'none';
+
+// --- クレジットモーダル ---
+let creditsModal = document.getElementById('creditsModal');
+if (!creditsModal) {
+  creditsModal = document.createElement('div');
+  creditsModal.id = 'creditsModal';
+  creditsModal.style.position = 'absolute';
+  creditsModal.style.left = '50%';
+  creditsModal.style.top = '50%';
+  creditsModal.style.transform = 'translate(-50%, -50%)';
+  creditsModal.style.width = 'min(380px, 92vw)';
+  creditsModal.style.background = 'rgba(10,14,28,0.97)';
+  creditsModal.style.color = '#fff';
+  creditsModal.style.border = '1px solid rgba(255,255,255,0.22)';
+  creditsModal.style.borderRadius = '14px';
+  creditsModal.style.padding = '16px 18px 14px';
+  creditsModal.style.zIndex = '9999';
+  creditsModal.style.display = 'none';
+  creditsModal.style.boxShadow = '0 8px 40px rgba(0,0,0,0.75)';
+  creditsModal.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-weight:800;font-size:14px;letter-spacing:0.04em;">🎵 クレジット</div>
+      <button id="creditsCloseBtn"
+        style="padding:3px 9px;background:#1e293b;color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:7px;cursor:pointer;font-size:0.85rem;">
+        ✕
+      </button>
+    </div>
+    <div style="font-size:12.5px;line-height:1.8;">
+      <div style="margin-bottom:10px;">
+        <b style="color:#a5b4fc;">タイトル楽曲</b><br>
+        目指せ！KIRAKIRAアイドル！<br>
+        <span style="opacity:0.75;">- DOVA-SYNDROME</span>
+      </div>
+      <div>
+        <b style="color:#a5b4fc;">使用楽曲</b><br>
+        シャイニングスター<br>
+        <span style="opacity:0.75;">- 魔王魂</span><br>
+        ときめき☆ラビリンス<br>
+        <span style="opacity:0.75;">- 魔王魂</span><br>
+        betrayal<br>
+        <span style="opacity:0.75;">- kuku(@1266166susu)</span>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(creditsModal);
+  creditsModal.querySelector('#creditsCloseBtn').onclick = () => {
+    creditsModal.style.display = 'none';
+  };
+}
+
+creditsBtn.onclick = () => {
+  creditsModal.style.display = 'block';
 };
 
 let saveScoreBtn = document.getElementById('saveScoreBtn');
@@ -753,7 +974,7 @@ let chartIndex = 0, R=30, leftTarget={x:0,y:0,r:0}, rightTarget={x:0,y:0,r:0}, s
 let SP_MAX=6000, spValue=0, spFullNotified=false, score=0, combo=0, notes=[], frame=0, noteDuration=settingsNoteSpeed;
 let bestScore = Number(localStorage.getItem('bestScore_' + currentSong.id)) || 0;
 let spFlashTimer=0, spRingTimer=0, spRingSpeed=20, spRingRange=40, spBoostTimer=0, spCountdownTimer=0, spCountdownValue=0;
-let popups=[], hitRings=[], lastInputWasTouch=false;
+let popups=[], hitRings=[], particles=[], lastInputWasTouch=false;
 let gameState = "init", countdownValue = 3, totalNotesSpawned = 0, clearStartFrame = null, resultStartFrame = null;
 let skillHistory = [], appealBoostNotes = 0, skillActivationCount = 0, spUseCount = 0, progressDisplay = 0;
 let judgeCount = {CRITICAL:0,WONDERFUL:0,GREAT:0,NICE:0,BAD:0,MISS:0};
@@ -910,7 +1131,9 @@ function resizeCanvas(){
     retryBtn.style.display='none';
     reseedBtn.style.display='none';
     rankingBtn.style.display = 'none';
-  　saveScoreBtn.style.display = 'none';
+    tutorialBtn.style.display = 'none';
+    creditsBtn.style.display = 'none';
+    saveScoreBtn.style.display = 'none';
     settingsBtn.style.display = 'none';
     return;
   }
@@ -918,7 +1141,9 @@ function resizeCanvas(){
   cvs.style.display='block';
   // ランキングボタンはタイトル画面のみ表示（曲選択画面では非表示）
   rankingBtn.style.display = (gameState === "init") ? 'block' : 'none';
-　saveScoreBtn.style.display = (gameState === "result") ? 'block' : 'none';
+  tutorialBtn.style.display = (gameState === "init") ? 'block' : 'none';
+  creditsBtn.style.display = (gameState === "init") ? 'block' : 'none';
+  saveScoreBtn.style.display = (gameState === "result") ? 'block' : 'none';
   // 設定ボタンはタイトル画面のみ表示
   settingsBtn.style.display = (gameState === "init") ? 'block' : 'none';
   startBtn.style.display = (gameState === "init" || gameState === "songSelect") ? 'block' : 'none';
@@ -942,15 +1167,21 @@ function resizeCanvas(){
 
   // --- ボタン位置の動的設定 ---
   if (gameState === "init") {
-    // タイトル画面: S.T.A.R.T!! ボタンを中央より下に、ランキングをその下に配置
+    // タイトル画面: S.T.A.R.T!! ボタンを中央より下に配置
     const startBtnTop = Math.round(cvs.height * 0.67);
     startBtn.style.top = startBtnTop + 'px';
     startBtn.style.left = '50%';
     startBtn.style.transform = 'translateX(-50%)';
-    rankingBtn.style.top = (startBtnTop + 54) + 'px';
-    rankingBtn.style.left = '50%';
-    rankingBtn.style.transform = 'translateX(-50%)';
-    rankingBtn.style.right = 'auto';
+    // ランキング・あそびかた・クレジットは右下に縦並び
+    const btnH = 34; // ボタンの高さ概算
+    const btnGapV = 8; // ボタン間の縦間隔
+    const bottomBase = 12;
+    creditsBtn.style.bottom = bottomBase + 'px';
+    creditsBtn.style.top = 'auto';
+    tutorialBtn.style.bottom = (bottomBase + btnH + btnGapV) + 'px';
+    tutorialBtn.style.top = 'auto';
+    rankingBtn.style.bottom = (bottomBase + (btnH + btnGapV) * 2) + 'px';
+    rankingBtn.style.top = 'auto';
   } else if (gameState === "songSelect") {
     // 曲選択画面: PLAYボタンを画面下部に小さく配置
     startBtn.style.top = Math.round(cvs.height * 0.86) + 'px';
@@ -1053,6 +1284,10 @@ window.addEventListener('touchstart', () => {
   if(gameState === "init" && titleBgm.paused) titleBgm.play().catch(()=>{});
 }, { once: true });
 window.addEventListener('mousedown', () => {
+  loadTapSE();
+  if(gameState === "init" && titleBgm.paused) titleBgm.play().catch(()=>{});
+}, { once: true });
+window.addEventListener('keydown', () => {
   loadTapSE();
   if(gameState === "init" && titleBgm.paused) titleBgm.play().catch(()=>{});
 }, { once: true });
@@ -1209,6 +1444,20 @@ function awardHit(target, points, label, resetCombo, baseRaw, chartIdx){
   else combo++;
   spValue=Math.min(SP_MAX, spValue+200);
   hitRings.push({x:target.x,y:target.y,r:target.r,alpha:1});
+  // ヒットパーティクル生成
+  {
+    const particleProps = {
+      CRITICAL:  {count:7, color:'#ffd700'},
+      WONDERFUL: {count:5, color:'#ff69b4'},
+      GREAT:     {count:4, color:'#00eaff'},
+    };
+    const pp = particleProps[label] || {count:3, color:'#ffffff'};
+    for(let p=0;p<pp.count;p++){
+      const angle = (Math.PI*2/pp.count)*p + Math.random()*0.5;
+      const speed = (1.8 + Math.random()*2.5) * (R/30);
+      particles.push({x:target.x,y:target.y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:22+Math.floor(Math.random()*10),maxLife:32,r:2+Math.random()*1.5,color:pp.color});
+    }
+  }
   const midX = (leftTarget.x + rightTarget.x) / 2;
   const midY = (leftTarget.y + rightTarget.y) / 2 - R*2;
   addPopup(label, midX, midY - 30, 500, 'label');
@@ -1272,9 +1521,9 @@ function judgeNotesGlobal(mx, my){
 }
 
 // --- SPゲージ使用時のスコア計算 ---
-function tryUseSP(mx,my){
+function tryUseSP(mx,my,bypassPos){
   if(spValue<SP_MAX) return false;
-  if(!isInSPSemicircle(mx,my)) return false;
+  if(!bypassPos && !isInSPSemicircle(mx,my)) return false;
   let nowTime = bgm.currentTime || 0;
   spUseCount++;
   let spBase = 180000;
@@ -1442,6 +1691,97 @@ function handlePointer(e){
 cvs.addEventListener('touchstart',handlePointer,{passive:false});
 cvs.addEventListener('mousedown',handlePointer);
 
+// --- キーボード対応（PC向け） ---
+// Z/X=ノーツタップ（両押しでペア），Ctrl=SP，Shift=作戦切り替え
+const keyState = {};
+window.addEventListener('keyup', e => { keyState[e.code] = false; });
+window.addEventListener('keydown', e => {
+  if(gameState !== 'playing') return;
+  const code = e.code;
+  if(!['KeyZ','KeyX','ControlLeft','ControlRight','ShiftLeft','ShiftRight'].includes(code)) return;
+  e.preventDefault();
+  if(e.repeat) return; // キーリピートは無視
+
+  // 作戦切り替え（Shift）
+  if(code === 'ShiftLeft' || code === 'ShiftRight'){
+    if(strategyChangeCooldown === 0){
+      currentStrategy = currentStrategy === 'red' ? 'blue' : 'red';
+      strategyChangeCooldown = STRATEGY_CHANGE_NOTES;
+      notesProcessedSinceSwitch = 0;
+      strategyBadgeOffsetX = -300;
+      const strategyName = currentStrategy === 'red' ? '赤作戦（アタッカー）' : '青作戦（ヒーラー）';
+      skillHistory.unshift({text: `[${strategyName}に切り替え]`, life: 180});
+      if(skillHistory.length > 5) skillHistory.pop();
+    }
+    return;
+  }
+
+  // SP発動（Ctrl）
+  if(code === 'ControlLeft' || code === 'ControlRight'){
+    tryUseSP(0, 0, true);
+    return;
+  }
+
+  // ノーツタップ（Z/X）
+  keyState[code] = true;
+  const bothHeld = keyState['KeyZ'] && keyState['KeyX'];
+
+  if(bothHeld){
+    // 両押し → ペアノーツ判定
+    const pairs = getSimultaneousPairsInNotes();
+    for(const [nL, nR] of pairs){
+      const left  = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nL : nR;
+      const right = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nR : nL;
+      const baseRaw = calcTapBase();
+      const posR = cubicBezier(right.path.p0, right.path.p1, right.path.p2, right.path.p3, Math.min(1, right.t/right.duration));
+      const distR = Math.hypot(posR.x - rightTarget.x, posR.y - rightTarget.y);
+      const resR = calcTapScoreAndLabel(distR, baseRaw);
+      if(resR.label !== 'MISS'){
+        awardHit(rightTarget, resR.points, resR.label, resR.reset, baseRaw, right.chartIdx);
+        notes = notes.filter(n => n !== right);
+      }
+      const posL = cubicBezier(left.path.p0, left.path.p1, left.path.p2, left.path.p3, Math.min(1, left.t/left.duration));
+      const distL = Math.hypot(posL.x - leftTarget.x, posL.y - leftTarget.y);
+      const resL = calcTapScoreAndLabel(distL, baseRaw);
+      if(resL.label !== 'MISS'){
+        awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
+        notes = notes.filter(n => n !== left);
+      }
+    }
+    return;
+  }
+
+  // 片押し → 対応サイドの単発ノーツを判定
+  const tapSide = code === 'KeyZ' ? 'left' : 'right';
+  const tapTarget = tapSide === 'left' ? leftTarget : rightTarget;
+  // ペアノーツ（同時刻・異サイドのペア）のインデックスを事前に収集して除外
+  const pairIndices = new Set();
+  for(let i = 0; i < notes.length; i++){
+    if(pairIndices.has(i)) continue;
+    for(let j = i + 1; j < notes.length; j++){
+      if(currentSong.notesChart[notes[i].chartIdx]?.time === currentSong.notesChart[notes[j].chartIdx]?.time &&
+         currentSong.notesChart[notes[i].chartIdx]?.side !== currentSong.notesChart[notes[j].chartIdx]?.side){
+        pairIndices.add(i); pairIndices.add(j);
+      }
+    }
+  }
+  const candidates = notes.filter((n, idx) => n.side === tapSide && !pairIndices.has(idx));
+  let best = null, bestDist = Infinity;
+  for(const n of candidates){
+    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
+    const dist = Math.hypot(pos.x - tapTarget.x, pos.y - tapTarget.y);
+    if(dist < bestDist){ bestDist = dist; best = n; }
+  }
+  if(best){
+    const baseRaw = calcTapBase();
+    const res = calcTapScoreAndLabel(bestDist, baseRaw);
+    if(res.label !== 'MISS'){
+      awardHit(tapTarget, res.points, res.label, res.reset, baseRaw, best.chartIdx);
+      notes = notes.filter(n => n !== best);
+    }
+  }
+});
+
 // ゲームを初期化して開始する共通関数
 async function startGame(seed) {
   await loadTapSE();
@@ -1469,7 +1809,7 @@ async function startGame(seed) {
   spCountdownTimer=0;
   spCountdownValue=0;
   spScoreBuffNotes = 0;
-  popups=[]; hitRings=[];
+  popups=[]; hitRings=[]; particles=[];
   frame = 0;
   countdownValue = 3;
   judgeCount = {CRITICAL:0,WONDERFUL:0,GREAT:0,NICE:0,BAD:0,MISS:0};
@@ -1618,6 +1958,7 @@ function update(){
   if(spRingTimer>0)  spRingTimer--;
   if(spBoostTimer>0) spBoostTimer--;
   hitRings=hitRings.filter(r=>{r.r+=4; r.alpha-=0.06; return r.alpha>0;});
+  particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;return p.life>0;});
   popups=popups.filter(p=>{p.timer--; return p.timer>0;});
   }
   // --- ユーティリティ: 同時押しペア情報を取得 ---
@@ -1670,21 +2011,48 @@ function judgeNotesAt(mx, my, alreadyHitIdx){
   
 // --- ノーツ描画: 同時押しペア間に白線描画 ---
 function drawNotes(){
-  // 1. 同時ペアの白い線
+  // 1. 同時ペアのライン（グラデーション+グロー）
   const pairs = getSimultaneousPairs();
-  ctx.save();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = R * 0.19;
-  ctx.globalAlpha = 0.8;
   for (const [n1, n2] of pairs) {
     const pos1 = cubicBezier(n1.path.p0, n1.path.p1, n1.path.p2, n1.path.p3, Math.min(1, n1.t/n1.duration));
     const pos2 = cubicBezier(n2.path.p0, n2.path.p1, n2.path.p2, n2.path.p3, Math.min(1, n2.t/n2.duration));
+
+    // AC判定で各ノーツの色を決める
+    const isAc1 = currentSong.acList.some(ac=>ac.state==="cleared"&&n1.chartIdx>=ac.startIdx&&n1.chartIdx<=ac.endIdx);
+    const isAc2 = currentSong.acList.some(ac=>ac.state==="cleared"&&n2.chartIdx>=ac.startIdx&&n2.chartIdx<=ac.endIdx);
+    const col1 = isAc1 ? "#ffd700" : "#00eaff";
+    const col2 = isAc2 ? "#ffd700" : "#00eaff";
+
+    // グロー（薄く細い発光線）
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = col1;
+    ctx.lineWidth = R * 0.22;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = col1;
+    ctx.shadowBlur = 12;
     ctx.beginPath();
     ctx.moveTo(pos1.x, pos1.y);
     ctx.lineTo(pos2.x, pos2.y);
     ctx.stroke();
+    ctx.restore();
+
+    // グラデーション本線
+    ctx.save();
+    const lineGrad = ctx.createLinearGradient(pos1.x, pos1.y, pos2.x, pos2.y);
+    lineGrad.addColorStop(0, col1);
+    lineGrad.addColorStop(0.5, "#ffffff");
+    lineGrad.addColorStop(1, col2);
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = R * 0.09;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.moveTo(pos1.x, pos1.y);
+    ctx.lineTo(pos2.x, pos2.y);
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.restore();
 
   // 2. 通常ノーツ描画
   for(let i=0;i<notes.length;i++){
@@ -1735,14 +2103,18 @@ function drawNotes(){
     ctx.stroke();
     ctx.restore();
 
-    // --- 主円 ---
+    // --- 主円 (中央から外へ暗くなる放射グラデーション) ---
     ctx.save();
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r * 0.72, 0, Math.PI * 2);
-    ctx.fillStyle = mainColor;
+    const mainGrad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, r * 0.72);
+    mainGrad.addColorStop(0,   isAcCleared ? "#fff9c4" : "#e0fbff");
+    mainGrad.addColorStop(0.4, mainColor);
+    mainGrad.addColorStop(1,   isAcCleared ? "rgba(60,30,0,0.55)" : "rgba(0,30,60,0.55)");
+    ctx.fillStyle = mainGrad;
     ctx.shadowColor = mainColor;
     ctx.shadowBlur = r * 0.16;
-    ctx.globalAlpha = isAcCleared ? 0.72 : 0.6;
+    ctx.globalAlpha = isAcCleared ? 0.82 : 0.72;
     ctx.fill();
     ctx.restore();
 
@@ -1819,17 +2191,20 @@ function strokeRainbowText(text,x,y,font){
   const g=ctx.createLinearGradient(x-100,y,x+100,y);
   const hue=(frame*4)%360;
   for(let i=0;i<=6;i++) g.addColorStop(i/6,`hsl(${(hue+i*60)%360},100%,50%)`);
-  ctx.lineWidth=4; ctx.strokeStyle=g; ctx.strokeText(text,x,y);
+  ctx.lineWidth=4; ctx.strokeStyle=g;
+  ctx.strokeText(text,x,y);
   ctx.fillStyle='#fff'; ctx.fillText(text,x,y);
 }
 function strokeColoredText(text,x,y,font,color){
   ctx.textAlign='center'; ctx.font=font;
-  ctx.lineWidth=4; ctx.strokeStyle=color; ctx.strokeText(text,x,y);
+  ctx.lineWidth=4; ctx.strokeStyle=color;
+  ctx.strokeText(text,x,y);
   ctx.fillStyle='#fff'; ctx.fillText(text,x,y);
 }
 function strokeOrangeWhiteText(text,x,y,font){
   ctx.textAlign='center'; ctx.font=font;
-  ctx.lineWidth=6; ctx.strokeStyle='#fff'; ctx.strokeText(text,x,y);
+  ctx.lineWidth=6; ctx.strokeStyle='#fff';
+  ctx.strokeText(text,x,y);
   ctx.fillStyle='#ffa500'; ctx.fillText(text,x,y);
 }
   
@@ -1905,9 +2280,39 @@ function drawSkillHistory(){
   }
 }
 function drawTargets(){
-  ctx.strokeStyle='#fff'; ctx.lineWidth=3;
   for(const t of [leftTarget,rightTarget]){
-    ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,Math.PI*2); ctx.stroke();
+    ctx.save();
+    // 中央から外へ暗くなる放射グラデーション
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r);
+    grad.addColorStop(0,   "rgba(255,255,255,0.22)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.07)");
+    grad.addColorStop(1,   "rgba(0,0,0,0.25)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+    // 外枠
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawParticles(){
+  for(const p of particles){
+    const a = p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = a * 0.92;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * a + 0.5, 0, Math.PI*2);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -2010,7 +2415,8 @@ function drawSPCountdown(){
   const g=ctx.createLinearGradient(x-80,y,x+80,y);
   const hue=(frame*4)%360;
   for(let i=0;i<=6;i++) g.addColorStop(i/6, `hsl(${(hue+i*60)%360},100%,50%)`);
-  ctx.lineWidth=8; ctx.strokeStyle=g; ctx.strokeText(spCountdownValue, x, y);
+  ctx.lineWidth=8; ctx.strokeStyle=g;
+  ctx.strokeText(spCountdownValue, x, y);
   ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.fillText(spCountdownValue, x, y);
 }
 
@@ -2499,6 +2905,7 @@ function render(){
   drawTargets();
   drawNotes();
   drawHitRings();
+  drawParticles();
   drawSPGauge();
   drawStaminaBar();
   drawStrategyIcons();
@@ -2538,38 +2945,51 @@ function render(){
     ctx.scale(scale, scale);
     ctx.textAlign='center';
 
-    ctx.font=`bold ${Math.round(cvs.height*0.10)}px system-ui`;
-    ctx.lineWidth=8; ctx.strokeStyle='#000'; ctx.strokeText('RESULT', 0, -90);
-    ctx.fillStyle='#ffa500'; ctx.fillText('RESULT', 0, -90);
+    const h = cvs.height, w = cvs.width;
+    // maxWidth in local (pre-scale) coords so text never overflows canvas width
+    const safeW = Math.round(w * 0.90 / scale);
+    // Font sizes capped by both height and width for narrow screens
+    const titleSize = Math.round(h * 0.09);
+    const mainSize  = Math.min(Math.round(h * 0.063), Math.round(w * 0.13));
+    const subSize   = Math.min(Math.round(h * 0.038), Math.round(w * 0.082));
+    // Proportional vertical spacing unit
+    const rowH = Math.round(h * 0.065);
+    // Subtle depth shadow helpers (result screen only)
+    const applyShadow = () => { ctx.shadowColor='rgba(0,0,0,0.45)'; ctx.shadowOffsetX=1; ctx.shadowOffsetY=2; ctx.shadowBlur=2; };
+    const clearShadow = () => { ctx.shadowOffsetX=0; ctx.shadowOffsetY=0; ctx.shadowBlur=0; };
+
+    // "RESULT" header
+    ctx.font=`bold ${titleSize}px system-ui`;
+    ctx.lineWidth=8; ctx.strokeStyle='#000'; applyShadow();
+    ctx.strokeText('RESULT', 0, -rowH*2, safeW);
+    ctx.fillStyle='#ffa500'; ctx.fillText('RESULT', 0, -rowH*2, safeW); clearShadow();
 
     // 曲名
-    const scoreFontSize = Math.round(cvs.height*0.07);
-    ctx.font = `bold ${scoreFontSize}px system-ui`;
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = "#000";
-    ctx.strokeText("ユメ語るよりユメ歌おう", 0, -36);
-    ctx.fillStyle = "#fff";
-    ctx.fillText("ユメ語るよりユメ歌おう", 0, -36);
+    ctx.font = `bold ${mainSize}px system-ui`;
+    ctx.lineWidth = 6; ctx.strokeStyle = "#000"; applyShadow();
+    ctx.strokeText(currentSong.title, 0, -rowH*0.75, safeW);
+    ctx.fillStyle = "#fff"; ctx.fillText(currentSong.title, 0, -rowH*0.75, safeW); clearShadow();
 
     // SCORE
-    ctx.font=`bold ${scoreFontSize}px system-ui`;
-    ctx.lineWidth=10; ctx.strokeStyle='#000'; ctx.strokeText(`SCORE: ${score}`, 0, 0);
-    ctx.fillStyle='#39ff14'; ctx.fillText(`SCORE: ${score}`, 0, 0);
-    // BEST SCORE表示
-    ctx.font=`bold ${scoreFontSize*0.8}px system-ui`;
-    ctx.lineWidth=8;
-    ctx.strokeStyle="#000";
-    ctx.strokeText(`BEST SCORE: ${bestScore}`, 0, 28);
-    ctx.fillStyle="#ffd700";
-    ctx.fillText(`BEST SCORE: ${bestScore}`, 0, 28);
+    ctx.font=`bold ${mainSize}px system-ui`;
+    ctx.lineWidth=8; ctx.strokeStyle='#000'; applyShadow();
+    ctx.strokeText(`SCORE: ${score}`, 0, rowH*0.25, safeW);
+    ctx.fillStyle='#39ff14'; ctx.fillText(`SCORE: ${score}`, 0, rowH*0.25, safeW); clearShadow();
 
-    ctx.font=`bold ${Math.round(cvs.height*0.04)}px system-ui`;
-    ctx.lineWidth=6; ctx.strokeStyle='#000';
-    ctx.strokeText(`特技発動回数: ${skillActivationCount}`, 0, 60);
-    ctx.strokeText(`SP使用回数: ${spUseCount}`, 0, 80);
+    // BEST SCORE
+    ctx.font=`bold ${Math.round(mainSize*0.78)}px system-ui`;
+    ctx.lineWidth=6; ctx.strokeStyle="#000"; applyShadow();
+    ctx.strokeText(`BEST SCORE: ${bestScore}`, 0, rowH*1.0, safeW);
+    ctx.fillStyle="#ffd700"; ctx.fillText(`BEST SCORE: ${bestScore}`, 0, rowH*1.0, safeW); clearShadow();
+
+    // 特技・SP 統計
+    ctx.font=`bold ${subSize}px system-ui`;
+    ctx.lineWidth=5; ctx.strokeStyle='#000'; applyShadow();
+    ctx.strokeText(`特技発動回数: ${skillActivationCount}`, 0, rowH*1.85, safeW);
+    ctx.strokeText(`SP使用回数: ${spUseCount}`, 0, rowH*2.45, safeW);
     ctx.fillStyle='#e5faff';
-    ctx.fillText(`特技発動回数: ${skillActivationCount}`, 0, 60);
-    ctx.fillText(`SP使用回数: ${spUseCount}`, 0, 80);
+    ctx.fillText(`特技発動回数: ${skillActivationCount}`, 0, rowH*1.85, safeW);
+    ctx.fillText(`SP使用回数: ${spUseCount}`, 0, rowH*2.45, safeW); clearShadow();
 
     ctx.restore();
     drawJudgeCountsResult();
