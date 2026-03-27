@@ -119,7 +119,7 @@ export function renderRankingTable(rows, rankingModal) {
      </div>`;
 
   let html = '';
-  html += headerCell('順位');
+  html += headerCell('🏆順位');
   html += headerCell('名前');
   html += headerCell('総合スコア', 'right');
 
