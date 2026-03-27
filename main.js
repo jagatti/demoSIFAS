@@ -1,5 +1,5 @@
 import { SONGS } from './songs.js';
-import { fetchTopScores, submitScore, renderRankingTable, escapeHtml_ } from './ranking.js';
+import { fetchTopScores, submitScore, renderRankingTable, escapeHtml_, MAX_NAME_LENGTH } from './ranking.js';
 
 let selectedSongIdx = 0;
 let songSelectCardBounds = [];
@@ -517,8 +517,10 @@ saveScoreBtn.style.cursor = 'pointer';
 saveScoreBtn.style.display = 'none';
 
 saveScoreBtn.onclick = async () => {
-  const name = prompt('名前を入力してください（10文字まで）\n\n※ ランキングは3曲の平均スコアで集計されます。\n※ 毎回同じ名前で送信してください。\n　 名前が異なるとランキング集計の対象外になります。');
-  if (!name) return;
+  const raw = prompt('名前を入力してください（10文字まで）\n\n※ ランキングは3曲の平均スコアで集計されます。\n※ 毎回同じ名前で送信してください。\n　 名前が異なるとランキング集計の対象外になります。');
+  if (!raw) return;
+  const name = raw.trim().slice(0, MAX_NAME_LENGTH);
+  if (!name) { alert('名前を入力してください。'); return; }
   try {
     const res = await submitScore(name, score, lastGameSeed, currentSong.id);
     if (!res.ok) throw new Error(res.error || 'unknown');

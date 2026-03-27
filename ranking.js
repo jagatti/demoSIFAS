@@ -3,6 +3,8 @@ import { SONGS } from './songs.js';
 // --- GASエンドポイント ---
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz2gsX2XXdV0OOvHtPF0AsHkTBvrCQ_8_1zYxVQ0bki_CoAlFy25QbsEryqTe-dZJJu/exec";
 
+export const MAX_NAME_LENGTH = 10;
+
 // --- JSONP ---
 export function jsonp(url, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
@@ -84,11 +86,19 @@ export async function fetchTopScores(limit) {
 
 // --- スコア送信（songId: 曲ごとに "[songId]" タグを名前に付加して管理） ---
 export async function submitScore(name, score, seed, songId) {
-  const taggedName = name + ` [${songId}]`;
+  // --- 入力バリデーション ---
+  const trimmedName = String(name ?? '').trim().slice(0, MAX_NAME_LENGTH);
+  if (!trimmedName) throw new Error('名前が無効です');
+  const scoreInt = Math.trunc(Number(score));
+  if (!Number.isFinite(scoreInt) || scoreInt < 0 || scoreInt > 99_999_999) {
+    throw new Error('スコアが無効です');
+  }
+
+  const taggedName = trimmedName + ` [${songId}]`;
   const url =
     `${GAS_ENDPOINT}?action=submit` +
     `&name=${encodeURIComponent(taggedName)}` +
-    `&score=${encodeURIComponent(score)}` +
+    `&score=${encodeURIComponent(scoreInt)}` +
     `&seed=${encodeURIComponent(seed)}` +
     `&ua=${encodeURIComponent(navigator.userAgent)}`;
   return await jsonp(url);
