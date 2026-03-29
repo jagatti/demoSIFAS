@@ -2287,7 +2287,7 @@ function drawPopups(){
 }
 function drawUI(){
   if(gameState!=="playing") return;
-  const cx=cvs.width - Math.max(70, Math.round(R*2.7));
+  const cx=cvs.width - Math.max(120, Math.round(R*4.5));
   ctx.textAlign='center'; ctx.fillStyle='#fff';
   ctx.font=`bold ${Math.max(38,Math.round(R*1.7))}px system-ui`; ctx.fillText(`${combo}`, cx, Math.max(40,Math.round(R*1.4)));
   ctx.font=`bold ${Math.max(20,Math.round(R*0.9))}px system-ui`; ctx.fillText('COMBO', cx, Math.max(70,Math.round(R*2.0)));
