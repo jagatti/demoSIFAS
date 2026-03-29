@@ -1741,6 +1741,7 @@ function update(dt){
       if(countdownValue===0){
         setTimeout(()=>{
           gameState="playing";
+          pauseBtn.style.display = 'block';
           frame = 0;
           bgm.currentTime = 0;
           bgmSyncPoint = null;
