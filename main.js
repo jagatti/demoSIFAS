@@ -1326,8 +1326,10 @@ function handlePointer(e){
         tx >= pauseResumeBtnBounds.x && tx <= pauseResumeBtnBounds.x + pauseResumeBtnBounds.w &&
         ty >= pauseResumeBtnBounds.y && ty <= pauseResumeBtnBounds.y + pauseResumeBtnBounds.h) {
       isPaused = false;
-      bgmSyncPoint = audioContext ? { audioCtxTime: audioContext.currentTime, bgmOffset: bgm.currentTime } : null;
-      bgm.play().catch(() => {});
+      const resumeOffset = bgm.currentTime;
+      bgm.play().then(() => {
+        bgmSyncPoint = audioContext ? { audioCtxTime: audioContext.currentTime, bgmOffset: resumeOffset } : null;
+      }).catch(() => {});
       pauseBtn.style.display = 'block';
       return;
     }
