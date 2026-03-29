@@ -11,6 +11,19 @@ const ctx = cvs.getContext('2d');
 const rotateMsg = document.getElementById('rotateMsg');
 const startBtn = document.getElementById('startBtn');
 const retryBtn = document.getElementById('retryBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+pauseBtn.style.position = 'absolute';
+pauseBtn.style.right = '12px';
+pauseBtn.style.top = '12px';
+pauseBtn.style.padding = '0.4em 0.7em';
+pauseBtn.style.fontSize = '1.2rem';
+pauseBtn.style.backgroundColor = 'rgba(30,41,59,0.8)';
+pauseBtn.style.color = 'white';
+pauseBtn.style.border = '1px solid rgba(255,255,255,0.18)';
+pauseBtn.style.borderRadius = '8px';
+pauseBtn.style.cursor = 'pointer';
+pauseBtn.style.zIndex = '100';
+pauseBtn.style.display = 'none';
 let reseedBtn = document.getElementById('reseedBtn');
 if (!reseedBtn) {
     reseedBtn = document.createElement('button');
@@ -493,42 +506,98 @@ if (!settingsModal) {
 }
 
 settingsBtn.onclick = () => {
+  const currentPlayerName = localStorage.getItem('player_name') || '';
+  let nameChangeHtml = '';
+  if (currentPlayerName) {
+    nameChangeHtml = `
+      <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,0.15);padding-top:12px;margin-top:4px;">
+        <span style="font-size:13px;font-weight:700;">👤 プレイヤー名の変更</span>
+        <input id="settingsNameInput" type="text" maxlength="10" value="${escapeHtml_(currentPlayerName)}"
+          style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:14px;box-sizing:border-box;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="settingsNameSaveBtn"
+            style="padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;">変更</button>
+          <span id="settingsNameMsg" style="font-size:12px;color:#86efac;display:none;">保存しました</span>
+        </div>
+      </div>`;
+  }
+  const settingsBody = settingsModal.querySelector('div[style*="flex-direction:column;gap:12px"]');
+  if (settingsBody) {
+    const existing = settingsModal.querySelector('#settingsNameSection');
+    if (existing) existing.remove();
+    if (currentPlayerName) {
+      const section = document.createElement('div');
+      section.id = 'settingsNameSection';
+      section.innerHTML = nameChangeHtml;
+      settingsBody.appendChild(section);
+      const saveBtn = section.querySelector('#settingsNameSaveBtn');
+      const nameInput = section.querySelector('#settingsNameInput');
+      const nameMsg = section.querySelector('#settingsNameMsg');
+      saveBtn.onclick = () => {
+        const newName = nameInput.value.trim().slice(0, MAX_NAME_LENGTH);
+        if (!newName) return;
+        localStorage.setItem('player_name', newName);
+        nameMsg.style.display = 'inline';
+        setTimeout(() => { nameMsg.style.display = 'none'; }, 1000);
+      };
+    }
+  }
   settingsModal.style.display = 'block';
 };
 
-let saveScoreBtn = document.getElementById('saveScoreBtn');
-if (!saveScoreBtn) {
-  saveScoreBtn = document.createElement('button');
-  saveScoreBtn.id = 'saveScoreBtn';
-  saveScoreBtn.textContent = 'スコア送信';
-  document.body.appendChild(saveScoreBtn);
+// --- プレイヤー名入力モーダル ---
+let playerNameModal = document.getElementById('playerNameModal');
+if (!playerNameModal) {
+  playerNameModal = document.createElement('div');
+  playerNameModal.id = 'playerNameModal';
+  playerNameModal.style.position = 'absolute';
+  playerNameModal.style.left = '50%';
+  playerNameModal.style.top = '50%';
+  playerNameModal.style.transform = 'translate(-50%, -50%)';
+  playerNameModal.style.width = 'min(360px, 92vw)';
+  playerNameModal.style.background = 'rgba(10,14,28,0.97)';
+  playerNameModal.style.color = '#fff';
+  playerNameModal.style.border = '1px solid rgba(255,255,255,0.22)';
+  playerNameModal.style.borderRadius = '14px';
+  playerNameModal.style.padding = '20px 20px 16px';
+  playerNameModal.style.zIndex = '9999';
+  playerNameModal.style.display = 'none';
+  playerNameModal.style.boxShadow = '0 8px 40px rgba(0,0,0,0.75)';
+  playerNameModal.innerHTML = `
+    <div style="font-weight:800;font-size:15px;letter-spacing:0.04em;margin-bottom:12px;">👤 プレイヤー名を入力</div>
+    <div style="font-size:12.5px;color:rgba(255,255,255,0.7);margin-bottom:12px;">ランキングに使用する名前を入力してください（10文字以内）</div>
+    <input type="text" id="playerNameInput" maxlength="10"
+      style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:14px;box-sizing:border-box;">
+    <div id="playerNameError" style="font-size:12px;color:#f87171;margin-top:6px;min-height:18px;"></div>
+    <div style="margin-top:12px;text-align:right;">
+      <button id="playerNameSubmitBtn"
+        style="padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;">決定</button>
+    </div>
+  `;
+  document.body.appendChild(playerNameModal);
 }
-saveScoreBtn.style.position = 'absolute';
-saveScoreBtn.style.right = '20px';
-saveScoreBtn.style.top = '50%';
-saveScoreBtn.style.transform = 'translateY(-50%)';
-saveScoreBtn.style.padding = '10px 20px';
-saveScoreBtn.style.fontSize = '16px';
-saveScoreBtn.style.backgroundColor = '#2563eb';
-saveScoreBtn.style.color = 'white';
-saveScoreBtn.style.border = 'none';
-saveScoreBtn.style.borderRadius = '6px';
-saveScoreBtn.style.cursor = 'pointer';
-saveScoreBtn.style.display = 'none';
 
-saveScoreBtn.onclick = async () => {
-  const raw = prompt('名前を入力してください（10文字まで）\n\n※ ランキングは3曲の平均スコアで集計されます。\n※ 毎回同じ名前で送信してください。\n　 名前が異なるとランキング集計の対象外になります。');
-  if (!raw) return;
-  const name = raw.trim().slice(0, MAX_NAME_LENGTH);
-  if (!name) { alert('名前を入力してください。'); return; }
-  try {
-    const res = await submitScore(name, score, lastGameSeed, currentSong.id);
-    if (!res.ok) throw new Error(res.error || 'unknown');
-    alert('送信しました！');
-  } catch (e) {
-    alert('送信に失敗しました: ' + e.message);
-  }
-};
+function showPlayerNameModal(onSuccess) {
+  playerNameModal.style.display = 'block';
+  const input = playerNameModal.querySelector('#playerNameInput');
+  const errorEl = playerNameModal.querySelector('#playerNameError');
+  const submitBtn = playerNameModal.querySelector('#playerNameSubmitBtn');
+  input.value = '';
+  errorEl.textContent = '';
+  input.focus();
+  const handleSubmit = () => {
+    const name = input.value.trim().slice(0, MAX_NAME_LENGTH);
+    if (!name) {
+      errorEl.textContent = '名前を入力してください。';
+      return;
+    }
+    localStorage.setItem('player_name', name);
+    playerNameModal.style.display = 'none';
+    onSuccess();
+  };
+  submitBtn.onclick = handleSubmit;
+  input.onkeydown = (e) => { if (e.key === 'Enter') handleSubmit(); };
+}
 
 // --- 乱数生成器 ---
 let _seed = 0;
@@ -566,6 +635,14 @@ let strategyChangeCooldown = 0;
 const STRATEGY_CHANGE_NOTES = 5;
 let notesProcessedSinceSwitch = 0;
 let strategyBadgeOffsetX = 0; // バッジスライドアニメーション用（0=定位置、負=画面外左）
+
+// --- ポーズ状態管理 ---
+let isPaused = false;
+let pauseResumeBtnBounds = null;
+let pauseTitleBtnBounds = null;
+
+// --- 曲選択画面「戻る」ボタン境界 ---
+let songSelectBackBtnBounds = null;
   
 // ノーツ到達までの秒数（デフォルト55フレーム固定：AC判定・進捗バーの基準）
 const DEFAULT_NOTE_TRAVEL_SEC = 55 / 60;
@@ -721,7 +798,7 @@ function resizeCanvas(){
     rankingBtn.style.display = 'none';
     tutorialBtn.style.display = 'none';
     creditsBtn.style.display = 'none';
-    saveScoreBtn.style.display = 'none';
+    pauseBtn.style.display = 'none';
     settingsBtn.style.display = 'none';
     return;
   }
@@ -731,7 +808,7 @@ function resizeCanvas(){
   rankingBtn.style.display = (gameState === "init") ? 'block' : 'none';
   tutorialBtn.style.display = (gameState === "init") ? 'block' : 'none';
   creditsBtn.style.display = (gameState === "init") ? 'block' : 'none';
-  saveScoreBtn.style.display = (gameState === "result") ? 'block' : 'none';
+  pauseBtn.style.display = (gameState === 'playing') ? 'block' : 'none';
   // 設定ボタンはタイトル画面のみ表示
   settingsBtn.style.display = (gameState === "init") ? 'block' : 'none';
   startBtn.style.display = (gameState === "init" || gameState === "songSelect") ? 'block' : 'none';
@@ -1203,6 +1280,42 @@ function tryUseSP(mx,my,bypassPos){
 // == タップ時の処理 ==
 // 各タッチを独立して判定（SP・作戦アイコン・ノーツが同時に反応できる）
 function handlePointer(e){
+  // --- ポーズ中のタップ判定 ---
+  if (gameState === 'playing' && isPaused) {
+    const isTouch = e.type.startsWith('touch');
+    if (isTouch) e.preventDefault();
+    const rect = cvs.getBoundingClientRect();
+    const scaleX = cvs.width / rect.width;
+    const scaleY = cvs.height / rect.height;
+    const pt = isTouch ? e.changedTouches[0] : e;
+    const tx = (pt.clientX - rect.left) * scaleX;
+    const ty = (pt.clientY - rect.top) * scaleY;
+
+    if (pauseResumeBtnBounds &&
+        tx >= pauseResumeBtnBounds.x && tx <= pauseResumeBtnBounds.x + pauseResumeBtnBounds.w &&
+        ty >= pauseResumeBtnBounds.y && ty <= pauseResumeBtnBounds.y + pauseResumeBtnBounds.h) {
+      isPaused = false;
+      bgmSyncPoint = audioContext ? { audioCtxTime: audioContext.currentTime, bgmOffset: bgm.currentTime } : null;
+      bgm.play().catch(() => {});
+      pauseBtn.style.display = 'block';
+      return;
+    }
+
+    if (pauseTitleBtnBounds &&
+        tx >= pauseTitleBtnBounds.x && tx <= pauseTitleBtnBounds.x + pauseTitleBtnBounds.w &&
+        ty >= pauseTitleBtnBounds.y && ty <= pauseTitleBtnBounds.y + pauseTitleBtnBounds.h) {
+      isPaused = false;
+      bgm.pause();
+      bgm.currentTime = 0;
+      gameState = 'init';
+      resizeCanvas();
+      titleBgm.currentTime = 0;
+      titleBgm.play().catch(() => {});
+      return;
+    }
+    return; // ポーズ中はその他の入力を無視
+  }
+
   if(gameState === "songSelect"){
     const isTouch = e.type.startsWith('touch');
     if(isTouch) e.preventDefault();
@@ -1213,6 +1326,16 @@ function handlePointer(e){
     for (const t of pts) {
       const tx = (t.clientX - rect.left) * scaleX;
       const ty = (t.clientY - rect.top) * scaleY;
+      // 「戻る」ボタン判定
+      if (songSelectBackBtnBounds &&
+          tx >= songSelectBackBtnBounds.x && tx <= songSelectBackBtnBounds.x + songSelectBackBtnBounds.w &&
+          ty >= songSelectBackBtnBounds.y && ty <= songSelectBackBtnBounds.y + songSelectBackBtnBounds.h) {
+        gameState = "init";
+        resizeCanvas();
+        titleBgm.currentTime = 0;
+        titleBgm.play().catch(() => {});
+        return;
+      }
       for (const b of songSelectCardBounds) {
         if (b.active && tx >= b.x && tx <= b.x + b.w && ty >= b.y && ty <= b.y + b.h) {
           selectedSongIdx = b.songIdx;
@@ -1354,6 +1477,7 @@ const keyState = {};
 window.addEventListener('keyup', e => { keyState[e.code] = false; });
 window.addEventListener('keydown', e => {
   if(gameState !== 'playing') return;
+  if(isPaused) return;
   const code = e.code;
   if(!['KeyZ','KeyX','ControlLeft','ControlRight','ShiftLeft','ShiftRight'].includes(code)) return;
   e.preventDefault();
@@ -1487,6 +1611,7 @@ async function startGame(seed) {
   currentStrategy = "red";
   strategyChangeCooldown = 0;
   notesProcessedSinceSwitch = 0;
+  isPaused = false;
 
   // --- 永続バフ初期化&50%で発動処理 ---
   permanentScoreBuff = 0;
@@ -1514,9 +1639,18 @@ async function startGame(seed) {
 startBtn.onclick = function() {
   if(gameState === "init"){
     // タイトル画面 → 曲選択へ
-    titleBgm.pause();
-    gameState = "songSelect";
-    resizeCanvas();
+    const playerName = localStorage.getItem('player_name');
+    if (!playerName) {
+      showPlayerNameModal(() => {
+        titleBgm.pause();
+        gameState = "songSelect";
+        resizeCanvas();
+      });
+    } else {
+      titleBgm.pause();
+      gameState = "songSelect";
+      resizeCanvas();
+    }
   } else if(gameState === "songSelect"){
     // 曲選択 → ゲーム開始
     startGame(Date.now());
@@ -1553,6 +1687,15 @@ retryBtn.onclick = ()=>{
 // --- 乱数再現ボタン挙動 ---
 reseedBtn.onclick = function() {
   startGame(lastGameSeed); // 保存したシードでゲーム開始
+};
+
+// --- ポーズボタン挙動 ---
+pauseBtn.onclick = () => {
+  if (gameState !== 'playing') return;
+  isPaused = true;
+  bgm.pause();
+  bgmSyncPoint = null;
+  pauseBtn.style.display = 'none';
 };
 
 
@@ -1621,6 +1764,17 @@ function update(dt){
     if(score > bestScore) {
       bestScore = score;
       localStorage.setItem('bestScore_' + currentSong.id, bestScore);
+      const playerName = localStorage.getItem('player_name');
+      if (playerName) {
+        submitScore(playerName, score, lastGameSeed, currentSong.id).then(res => {
+          if (!res.ok) { console.warn('スコア送信失敗:', res.error); return; }
+          const toast = document.createElement('div');
+          toast.style.cssText = 'position:fixed;left:20px;bottom:24px;z-index:9999;background:rgba(99,102,241,0.92);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:bold;box-shadow:0 4px 16px rgba(0,0,0,0.5);pointer-events:none;';
+          toast.textContent = '🏆 ベストスコアを更新！ランキングに送信しました';
+          document.body.appendChild(toast);
+          setTimeout(() => { toast.remove(); }, 2500);
+        }).catch(e => { console.warn('スコア送信エラー:', e); });
+      }
     }
   }
 
@@ -2659,6 +2813,41 @@ function render(){
       ctx.restore();
     }
     drawSongSelectScreen();
+
+    // --- 左上：ユーザー名表示 ---
+    const playerName = localStorage.getItem('player_name') || '';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText('👤 ' + playerName, 16, 28);
+
+    // --- 上部中央：平均スコア表示 ---
+    const scores = SONGS.map(s => Number(localStorage.getItem('bestScore_' + s.id)) || 0);
+    const avg = SONGS.length > 0 ? Math.floor(scores.reduce((a, b) => a + b, 0) / SONGS.length) : 0;
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.textAlign = 'center';
+    ctx.fillText('📊 Avg: ' + avg.toLocaleString('ja-JP'), cvs.width / 2, 28);
+
+    // --- 左下：タイトルへ戻るボタン ---
+    const backBtnX = 20;
+    const backBtnY = cvs.height - 20 - 36;
+    const backBtnW = 70;
+    const backBtnH = 36;
+    songSelectBackBtnBounds = { x: backBtnX, y: backBtnY, w: backBtnW, h: backBtnH };
+    ctx.save();
+    ctx.fillStyle = 'rgba(30,41,59,0.88)';
+    ctx.beginPath();
+    ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 8);
+    ctx.fill();
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('《 戻る', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2);
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+
     return;
   }
 
@@ -2707,6 +2896,44 @@ function render(){
     ctx.font=`bold ${Math.round(cvs.height*0.14)}px system-ui`;
     ctx.lineWidth=10; ctx.strokeStyle='#fff'; ctx.strokeText('CLEAR', cvs.width/2, cvs.height/2);
     ctx.fillStyle='#ffa500'; ctx.fillText('CLEAR', cvs.width/2, cvs.height/2);
+    return;
+  }
+
+  // --- ポーズオーバーレイ ---
+  if(gameState === "playing" && isPaused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText('⏸ PAUSED', cvs.width / 2, cvs.height / 2 - 60);
+
+    const resumeBtnX = cvs.width / 2 - 90;
+    const resumeBtnY = cvs.height / 2 - 10;
+    const btnW = 180, btnH = 48;
+    ctx.fillStyle = 'rgba(99,102,241,0.92)';
+    ctx.beginPath();
+    ctx.roundRect(resumeBtnX, resumeBtnY, btnW, btnH, 10);
+    ctx.fill();
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('▶ 再開', cvs.width / 2, resumeBtnY + btnH / 2);
+    pauseResumeBtnBounds = { x: resumeBtnX, y: resumeBtnY, w: btnW, h: btnH };
+
+    const titleBtnY = resumeBtnY + btnH + 20;
+    ctx.fillStyle = 'rgba(30,41,59,0.92)';
+    ctx.beginPath();
+    ctx.roundRect(resumeBtnX, titleBtnY, btnW, btnH, 10);
+    ctx.fill();
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText('⏹ タイトルへ', cvs.width / 2, titleBtnY + btnH / 2);
+    ctx.textBaseline = 'alphabetic';
+    pauseTitleBtnBounds = { x: resumeBtnX, y: titleBtnY, w: btnW, h: btnH };
     return;
   }
   if(gameState==="result"){
@@ -2780,6 +3007,8 @@ function loop(ts){
   // Capped at 3 to prevent huge jumps after tab switching / sleep
   const dt = _loopLastTs ? Math.min((ts - _loopLastTs) / 16.667, 3) : 1;
   _loopLastTs = ts;
-  update(dt); render(); requestAnimationFrame(loop);
+  if (!isPaused) update(dt);
+  render();
+  requestAnimationFrame(loop);
 }
 (function start(){ requestAnimationFrame(loop); })();
