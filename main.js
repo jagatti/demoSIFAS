@@ -1,5 +1,5 @@
 import { SONGS } from './songs.js';
-import { fetchTopScores, submitScore, renderRankingTable, escapeHtml_, MAX_NAME_LENGTH } from './ranking.js';
+import { fetchTopScores, submitScore, renderRankingTable, escapeHtml_, MAX_NAME_LENGTH, checkNameExists } from './ranking.js';
 
 let selectedSongIdx = 0;
 let songSelectCardBounds = [];
@@ -514,6 +514,7 @@ settingsBtn.onclick = () => {
         <span style="font-size:13px;font-weight:700;">👤 プレイヤー名の変更</span>
         <input id="settingsNameInput" type="text" maxlength="10" value="${escapeHtml_(currentPlayerName)}"
           style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:16px;box-sizing:border-box;">
+        <span id="settingsNameError" style="font-size:12px;color:#f87171;display:none;min-height:16px;">既に使用されています。</span>
         <div style="display:flex;align-items:center;gap:8px;">
           <button id="settingsNameSaveBtn"
             style="padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;">変更</button>
@@ -533,9 +534,26 @@ settingsBtn.onclick = () => {
       const saveBtn = section.querySelector('#settingsNameSaveBtn');
       const nameInput = section.querySelector('#settingsNameInput');
       const nameMsg = section.querySelector('#settingsNameMsg');
-      saveBtn.onclick = () => {
+      const nameErrorEl = section.querySelector('#settingsNameError');
+      saveBtn.onclick = async () => {
         const newName = nameInput.value.trim().slice(0, MAX_NAME_LENGTH);
         if (!newName) return;
+        nameErrorEl.style.display = 'none';
+        nameMsg.style.display = 'none';
+        if (newName !== currentPlayerName) {
+          saveBtn.disabled = true;
+          let taken = false;
+          try {
+            taken = await checkNameExists(newName);
+          } catch (_) {
+            // ネットワークエラー時はチェックをスキップ
+          }
+          saveBtn.disabled = false;
+          if (taken) {
+            nameErrorEl.style.display = 'inline';
+            return;
+          }
+        }
         localStorage.setItem('player_name', newName);
         nameMsg.style.display = 'inline';
         setTimeout(() => { nameMsg.style.display = 'none'; }, 1000);
@@ -585,10 +603,23 @@ function showPlayerNameModal(onSuccess) {
   input.value = '';
   errorEl.textContent = '';
   input.focus();
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const name = input.value.trim().slice(0, MAX_NAME_LENGTH);
     if (!name) {
       errorEl.textContent = '名前を入力してください。';
+      return;
+    }
+    submitBtn.disabled = true;
+    errorEl.textContent = '';
+    let taken = false;
+    try {
+      taken = await checkNameExists(name);
+    } catch (_) {
+      // ネットワークエラー時はチェックをスキップ
+    }
+    submitBtn.disabled = false;
+    if (taken) {
+      errorEl.textContent = '既に使用されています。';
       return;
     }
     localStorage.setItem('player_name', name);
