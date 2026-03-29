@@ -164,7 +164,7 @@ let tutorialModal = document.getElementById('tutorialModal');
 if (!tutorialModal) {
   tutorialModal = document.createElement('div');
   tutorialModal.id = 'tutorialModal';
-  tutorialModal.style.position = 'absolute';
+  tutorialModal.style.position = 'fixed';
   tutorialModal.style.left = '50%';
   tutorialModal.style.top = '50%';
   tutorialModal.style.transform = 'translate(-50%, -50%)';
@@ -254,7 +254,7 @@ let rankingModal = document.getElementById('rankingModal');
 if (!rankingModal) {
   rankingModal = document.createElement('div');
   rankingModal.id = 'rankingModal';
-  rankingModal.style.position = 'absolute';
+  rankingModal.style.position = 'fixed';
   rankingModal.style.left = '50%';
   rankingModal.style.top = '50%';
   rankingModal.style.transform = 'translate(-50%, -50%)';
@@ -353,7 +353,7 @@ let creditsModal = document.getElementById('creditsModal');
 if (!creditsModal) {
   creditsModal = document.createElement('div');
   creditsModal.id = 'creditsModal';
-  creditsModal.style.position = 'absolute';
+  creditsModal.style.position = 'fixed';
   creditsModal.style.left = '50%';
   creditsModal.style.top = '50%';
   creditsModal.style.transform = 'translate(-50%, -50%)';
@@ -430,7 +430,7 @@ let settingsModal = document.getElementById('settingsModal');
 if (!settingsModal) {
   settingsModal = document.createElement('div');
   settingsModal.id = 'settingsModal';
-  settingsModal.style.position = 'absolute';
+  settingsModal.style.position = 'fixed';
   settingsModal.style.left = '50%';
   settingsModal.style.top = '50%';
   settingsModal.style.transform = 'translate(-50%, -50%)';
@@ -513,7 +513,7 @@ settingsBtn.onclick = () => {
       <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,0.15);padding-top:12px;margin-top:4px;">
         <span style="font-size:13px;font-weight:700;">👤 プレイヤー名の変更</span>
         <input id="settingsNameInput" type="text" maxlength="10" value="${escapeHtml_(currentPlayerName)}"
-          style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:14px;box-sizing:border-box;">
+          style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:16px;box-sizing:border-box;">
         <div style="display:flex;align-items:center;gap:8px;">
           <button id="settingsNameSaveBtn"
             style="padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;">変更</button>
@@ -550,7 +550,7 @@ let playerNameModal = document.getElementById('playerNameModal');
 if (!playerNameModal) {
   playerNameModal = document.createElement('div');
   playerNameModal.id = 'playerNameModal';
-  playerNameModal.style.position = 'absolute';
+  playerNameModal.style.position = 'fixed';
   playerNameModal.style.left = '50%';
   playerNameModal.style.top = '50%';
   playerNameModal.style.transform = 'translate(-50%, -50%)';
@@ -567,7 +567,7 @@ if (!playerNameModal) {
     <div style="font-weight:800;font-size:15px;letter-spacing:0.04em;margin-bottom:12px;">👤 プレイヤー名を入力</div>
     <div style="font-size:12.5px;color:rgba(255,255,255,0.7);margin-bottom:12px;">ランキングに使用する名前を入力してください（10文字以内）</div>
     <input type="text" id="playerNameInput" maxlength="10"
-      style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:14px;box-sizing:border-box;">
+      style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#0f172a;color:#fff;font-size:16px;box-sizing:border-box;">
     <div id="playerNameError" style="font-size:12px;color:#f87171;margin-top:6px;min-height:18px;"></div>
     <div style="margin-top:12px;text-align:right;">
       <button id="playerNameSubmitBtn"
