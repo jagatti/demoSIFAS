@@ -84,6 +84,32 @@ export async function fetchTopScores(limit) {
   return res;
 }
 
+// --- 名前の重複チェック ---
+export async function checkNameExists(name) {
+  const trimmed = String(name ?? '').trim().toLowerCase();
+  if (!trimmed) return false;
+  const res = await jsonp(`${GAS_ENDPOINT}?action=top`);
+  if (!res || !res.ok || !Array.isArray(res.data)) return false;
+  const songIds = SONGS.map(s => s.id);
+  const playerNames = new Set();
+  for (const r of res.data) {
+    const nameStr = String(r.name ?? '');
+    let matched = false;
+    for (const songId of songIds) {
+      const tag = ` [${songId}]`;
+      if (nameStr.endsWith(tag)) {
+        playerNames.add(nameStr.slice(0, -tag.length).toLowerCase());
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      playerNames.add(nameStr.toLowerCase());
+    }
+  }
+  return playerNames.has(trimmed);
+}
+
 // --- スコア送信（songId: 曲ごとに "[songId]" タグを名前に付加して管理） ---
 export async function submitScore(name, score, seed, songId) {
   // --- 入力バリデーション ---
