@@ -1450,7 +1450,15 @@ function handlePointer(e){
 
   if (activeNoteFingers >= 2) {
     const pairs = getSimultaneousPairsInNotes(); // [[nL, nR], ...]
+    // 1タップで消費するのは最もタイミング誤差が小さいペア1つのみ
+    // （全ペアをループすると0.2s間隔のペアが一括消費されてしまうため）
+    let bestPair = null, bestPairError = Infinity;
     for (const [nL, nR] of pairs) {
+      const pairTimingError = Math.min(Math.abs(nL.t - nL.duration), Math.abs(nR.t - nR.duration));
+      if (pairTimingError < bestPairError) { bestPairError = pairTimingError; bestPair = [nL, nR]; }
+    }
+    if (bestPair) {
+      const [nL, nR] = bestPair;
       let right = nL, left = nR;
       if(currentSong.notesChart[nL.chartIdx]?.side === "left" && currentSong.notesChart[nR.chartIdx]?.side === "right"){
         left = nL; right = nR;
@@ -1466,7 +1474,6 @@ function handlePointer(e){
         awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
         notes = notes.filter(n => n !== left);
       }
-      // どちらもMISSなら何もしない
     }
     return;
   }
@@ -1547,9 +1554,15 @@ window.addEventListener('keydown', e => {
   const bothHeld = keyState['KeyZ'] && keyState['KeyX'];
 
   if(bothHeld){
-    // 両押し → ペアノーツ判定
+    // 両押し → ペアノーツ判定（1キー入力につき最小誤差ペア1つのみ）
     const pairs = getSimultaneousPairsInNotes();
+    let bestPair = null, bestPairError = Infinity;
     for(const [nL, nR] of pairs){
+      const pairTimingError = Math.min(Math.abs(nL.t - nL.duration), Math.abs(nR.t - nR.duration));
+      if(pairTimingError < bestPairError){ bestPairError = pairTimingError; bestPair = [nL, nR]; }
+    }
+    if(bestPair){
+      const [nL, nR] = bestPair;
       const left  = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nL : nR;
       const right = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nR : nL;
       const baseRaw = calcTapBase();
