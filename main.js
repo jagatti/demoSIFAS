@@ -1085,12 +1085,13 @@ function judgeSingleNoteAt(mx, my, excludeNotes) {
 }
   
 // 判定ラベル・スコア計算
-function calcTapScoreAndLabel(dist, baseRaw){
-  let label='WONDERFUL', mult=1.2;
-  if(dist<=10){label='WONDERFUL';mult=1.2;}
-  else if(dist<=18){label='GREAT';mult=1.1;}
-  else if(dist<=24){label='NICE';mult=1.0;}
-  else if(dist<=28){label='BAD';mult=0.9;}
+// timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング)
+function calcTapScoreAndLabel(timingError, baseRaw){
+  let label = 'WONDERFUL', mult = 1.2;
+  if(timingError<=5)       {label='WONDERFUL';mult=1.2;}
+  else if(timingError<=10) {label='GREAT';    mult=1.1;}
+  else if(timingError<=15) {label='NICE';     mult=1.0;}
+  else if(timingError<=20) {label='BAD';      mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(seededRandom()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
@@ -1440,17 +1441,13 @@ function handlePointer(e){
       if(currentSong.notesChart[nL.chartIdx]?.side === "left" && currentSong.notesChart[nR.chartIdx]?.side === "right"){
         left = nL; right = nR;
       }
-      const posR = cubicBezier(right.path.p0, right.path.p1, right.path.p2, right.path.p3, Math.min(1, right.t/right.duration));
-      const distR = Math.hypot(posR.x - rightTarget.x, posR.y - rightTarget.y);
       const baseRaw = calcTapBase();
-      const resR = calcTapScoreAndLabel(distR, baseRaw);
+      const resR = calcTapScoreAndLabel(Math.abs(right.t - right.duration), baseRaw);
       if(resR.label !== 'MISS'){
         awardHit(rightTarget, resR.points, resR.label, resR.reset, baseRaw, right.chartIdx);
         notes = notes.filter(n => n !== right);
       }
-      const posL = cubicBezier(left.path.p0, left.path.p1, left.path.p2, left.path.p3, Math.min(1, left.t/left.duration));
-      const distL = Math.hypot(posL.x - leftTarget.x, posL.y - leftTarget.y);
-      const resL = calcTapScoreAndLabel(distL, baseRaw);
+      const resL = calcTapScoreAndLabel(Math.abs(left.t - left.duration), baseRaw);
       if(resL.label !== 'MISS'){
         awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
         notes = notes.filter(n => n !== left);
@@ -1470,17 +1467,16 @@ function handlePointer(e){
   }
   let targetNotes = notes.filter(isNotPairNote);
 
-  let best = null, bestDist = Infinity, bestTarget = null;
+  let best = null, bestTimingError = Infinity, bestTarget = null;
   for(const n of targetNotes){
     const target = n.side === 'left' ? leftTarget : (n.side === 'right' ? rightTarget : null);
     if(!target) continue;
-    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
-    const dist = Math.hypot(pos.x - target.x, pos.y - target.y);
-    if(dist < bestDist){ bestDist = dist; best = n; bestTarget = target; }
+    const timingError = Math.abs(n.t - n.duration);
+    if(timingError < bestTimingError){ bestTimingError = timingError; best = n; bestTarget = target; }
   }
   if(best){
     const baseRaw = calcTapBase();
-    const res = calcTapScoreAndLabel(bestDist, baseRaw);
+    const res = calcTapScoreAndLabel(bestTimingError, baseRaw);
     if(res.label !== 'MISS'){
       awardHit(bestTarget, res.points, res.label, res.reset, baseRaw, best.chartIdx);
       notes = notes.filter(n => n !== best);
@@ -1536,16 +1532,12 @@ window.addEventListener('keydown', e => {
       const left  = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nL : nR;
       const right = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nR : nL;
       const baseRaw = calcTapBase();
-      const posR = cubicBezier(right.path.p0, right.path.p1, right.path.p2, right.path.p3, Math.min(1, right.t/right.duration));
-      const distR = Math.hypot(posR.x - rightTarget.x, posR.y - rightTarget.y);
-      const resR = calcTapScoreAndLabel(distR, baseRaw);
+      const resR = calcTapScoreAndLabel(Math.abs(right.t - right.duration), baseRaw);
       if(resR.label !== 'MISS'){
         awardHit(rightTarget, resR.points, resR.label, resR.reset, baseRaw, right.chartIdx);
         notes = notes.filter(n => n !== right);
       }
-      const posL = cubicBezier(left.path.p0, left.path.p1, left.path.p2, left.path.p3, Math.min(1, left.t/left.duration));
-      const distL = Math.hypot(posL.x - leftTarget.x, posL.y - leftTarget.y);
-      const resL = calcTapScoreAndLabel(distL, baseRaw);
+      const resL = calcTapScoreAndLabel(Math.abs(left.t - left.duration), baseRaw);
       if(resL.label !== 'MISS'){
         awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
         notes = notes.filter(n => n !== left);
@@ -1569,15 +1561,14 @@ window.addEventListener('keydown', e => {
     }
   }
   const candidates = notes.filter((n, idx) => n.side === tapSide && !pairIndices.has(idx));
-  let best = null, bestDist = Infinity;
+  let best = null, bestTimingError = Infinity;
   for(const n of candidates){
-    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
-    const dist = Math.hypot(pos.x - tapTarget.x, pos.y - tapTarget.y);
-    if(dist < bestDist){ bestDist = dist; best = n; }
+    const timingError = Math.abs(n.t - n.duration);
+    if(timingError < bestTimingError){ bestTimingError = timingError; best = n; }
   }
   if(best){
     const baseRaw = calcTapBase();
-    const res = calcTapScoreAndLabel(bestDist, baseRaw);
+    const res = calcTapScoreAndLabel(bestTimingError, baseRaw);
     if(res.label !== 'MISS'){
       awardHit(tapTarget, res.points, res.label, res.reset, baseRaw, best.chartIdx);
       notes = notes.filter(n => n !== best);
@@ -1761,7 +1752,7 @@ function update(dt){
     if(acFailFlashTimer > 0) acFailFlashTimer -= dt;
   }
   for(const n of notes) n.t += dt;
-  const keep=[];for(const n of notes){if(n.t<=n.duration+5) keep.push(n);else applyMiss('MISS');}notes=keep;
+  const keep=[];for(const n of notes){if(n.t<=n.duration+20) keep.push(n);else applyMiss('MISS');}notes=keep;
   if(gameState==="playing" && chartIndex>=currentSong.notesChart.length && notes.length===0){
     if(waitingClearFrame === null){
       waitingClearFrame = frame;
