@@ -1085,13 +1085,14 @@ function judgeSingleNoteAt(mx, my, excludeNotes) {
 }
   
 // 判定ラベル・スコア計算
-// timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング)
+// timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング、60fps前提)
+// 各窓は片側: WONDERFUL±15f(±250ms)、GREAT±18f、NICE±20f、BAD±21f
 function calcTapScoreAndLabel(timingError, baseRaw){
   let label = 'WONDERFUL', mult = 1.2;
-  if(timingError<=5)       {label='WONDERFUL';mult=1.2;}
-  else if(timingError<=10) {label='GREAT';    mult=1.1;}
-  else if(timingError<=15) {label='NICE';     mult=1.0;}
-  else if(timingError<=20) {label='BAD';      mult=0.9;}
+  if(timingError<=15)      {label='WONDERFUL';mult=1.2;}
+  else if(timingError<=18) {label='GREAT';    mult=1.1;}
+  else if(timingError<=20) {label='NICE';     mult=1.0;}
+  else if(timingError<=21) {label='BAD';      mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(seededRandom()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
@@ -1467,8 +1468,15 @@ function handlePointer(e){
   }
   let targetNotes = notes.filter(isNotPairNote);
 
+  // 密ノーツ対策: 目標通過済み(n.t>=n.duration)のノーツを優先して選択する。
+  // ノーツ間隔が短い場合にWONDERFUL窓が重なっても、
+  // 「叩こうとしたノーツより次のノーツが先に消費される」誤判定を防ぐ。
+  // 通過済みがなければ全候補から最小誤差を選ぶ（早め叩きも正常に処理される）。
+  const passedNotes = targetNotes.filter(n => n.t >= n.duration);
+  const candidatePool = passedNotes.length > 0 ? passedNotes : targetNotes;
+
   let best = null, bestTimingError = Infinity, bestTarget = null;
-  for(const n of targetNotes){
+  for(const n of candidatePool){
     const target = n.side === 'left' ? leftTarget : (n.side === 'right' ? rightTarget : null);
     if(!target) continue;
     const timingError = Math.abs(n.t - n.duration);
@@ -1561,8 +1569,11 @@ window.addEventListener('keydown', e => {
     }
   }
   const candidates = notes.filter((n, idx) => n.side === tapSide && !pairIndices.has(idx));
+  // 密ノーツ対策: 目標通過済みのノーツを優先（早め叩きはフォールバックで処理される）
+  const passedKbd = candidates.filter(n => n.t >= n.duration);
+  const kbdPool = passedKbd.length > 0 ? passedKbd : candidates;
   let best = null, bestTimingError = Infinity;
-  for(const n of candidates){
+  for(const n of kbdPool){
     const timingError = Math.abs(n.t - n.duration);
     if(timingError < bestTimingError){ bestTimingError = timingError; best = n; }
   }
@@ -1752,7 +1763,7 @@ function update(dt){
     if(acFailFlashTimer > 0) acFailFlashTimer -= dt;
   }
   for(const n of notes) n.t += dt;
-  const keep=[];for(const n of notes){if(n.t<=n.duration+20) keep.push(n);else applyMiss('MISS');}notes=keep;
+  const keep=[];for(const n of notes){if(n.t<=n.duration+21) keep.push(n);else applyMiss('MISS');}notes=keep;
   if(gameState==="playing" && chartIndex>=currentSong.notesChart.length && notes.length===0){
     if(waitingClearFrame === null){
       waitingClearFrame = frame;
