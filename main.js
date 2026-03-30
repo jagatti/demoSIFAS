@@ -928,18 +928,9 @@ function updateACOnTap(pointsWithCombo, nowTime) {
         }
       }
     }
-    // --- AC失敗判定と赤フラッシュ演出 ---
-    if (
-      ac.state === "active" &&
-      nowTime > ac.endTime + settingsTimingOffset && // AC時間を過ぎた
-      !ac.cleared             // まだクリアしてない
-    ) {
-      ac.state = "ended";
-      applyACFailDamage();
-      acFailFlashTimer = 18; // 0.3秒間赤フラッシュ
-      skillHistory.unshift({text: "AC失敗！", life:180});
-      if(skillHistory.length>5) skillHistory.pop();
-    }
+    // ※ AC失敗判定はupdateACOnTime（時間ベース）に委ねる
+    //   スタミナ型ACはendTime到達時にスタミナを確認して判定するため、
+    //   ここでタイム条件だけで失敗判定してはいけない
   });
 }
 
