@@ -896,8 +896,8 @@ function getNotePos(n){
   const p2=n.path.p2, p3=n.path.p3, ov=n.t-n.duration;
   return {x:p3.x+3*(p3.x-p2.x)*ov/n.duration, y:p3.y+3*(p3.y-p2.y)*ov/n.duration};
 }
-// MISS閾値(21f)に基づくフェードアウト係数 (通過前=1, 通過直後=1→0, 閾値=0)
-const MISS_WINDOW = 21;
+// MISS閾値(18f)に基づくフェードアウト係数 (通過前=1, 通過直後=1→0, 閾値=0)
+const MISS_WINDOW = 18;
 function noteMissAlpha(n){
   if(n.t<=n.duration) return 1;
   return Math.max(0, 1 - (n.t - n.duration) / MISS_WINDOW);
@@ -1099,13 +1099,13 @@ function judgeSingleNoteAt(mx, my, excludeNotes) {
   
 // 判定ラベル・スコア計算
 // timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング、60fps前提)
-// 各窓は片側: WONDERFUL±15f(±250ms)、GREAT±18f、NICE±20f、BAD±21f
+// 各窓: WONDERFUL≤6f、GREAT≤12f、NICE≤15f、BAD≤18f (timingError=絶対偏差フレーム数)
 function calcTapScoreAndLabel(timingError, baseRaw){
   let label = 'WONDERFUL', mult = 1.2;
-  if(timingError<=15)      {label='WONDERFUL';mult=1.2;}
-  else if(timingError<=18) {label='GREAT';    mult=1.1;}
-  else if(timingError<=20) {label='NICE';     mult=1.0;}
-  else if(timingError<=21) {label='BAD';      mult=0.9;}
+  if(timingError<=6)       {label='WONDERFUL';mult=1.2;}
+  else if(timingError<=12) {label='GREAT';    mult=1.1;}
+  else if(timingError<=15) {label='NICE';     mult=1.0;}
+  else if(timingError<=18) {label='BAD';      mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(seededRandom()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
