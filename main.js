@@ -928,9 +928,21 @@ function updateACOnTap(pointsWithCombo, nowTime) {
         }
       }
     }
-    // ※ AC失敗判定はupdateACOnTime（時間ベース）に委ねる
-    //   スタミナ型ACはendTime到達時にスタミナを確認して判定するため、
-    //   ここでタイム条件だけで失敗判定してはいけない
+    // --- AC失敗判定と赤フラッシュ演出（スタミナ型を除く） ---
+    // スタミナ型はendTime到達時にスタミナを確認して判定するため updateACOnTime に委ねる
+    // スコア型・SP型・作戦型はここで失敗判定する
+    if (
+      ac.state === "active" &&
+      ac.type !== "stamina" &&              // スタミナ型はupdateACOnTimeに委ねる
+      nowTime > ac.endTime + settingsTimingOffset && // AC時間を過ぎた
+      !ac.cleared             // まだクリアしてない
+    ) {
+      ac.state = "ended";
+      applyACFailDamage();
+      acFailFlashTimer = 18; // 0.3秒間赤フラッシュ
+      skillHistory.unshift({text: "AC失敗！", life:180});
+      if(skillHistory.length>5) skillHistory.pop();
+    }
   });
 }
 
