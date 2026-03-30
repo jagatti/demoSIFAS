@@ -928,18 +928,7 @@ function updateACOnTap(pointsWithCombo, nowTime) {
         }
       }
     }
-    // --- AC失敗判定と赤フラッシュ演出 ---
-    if (
-      ac.state === "active" &&
-      nowTime > ac.endTime + settingsTimingOffset && // AC時間を過ぎた
-      !ac.cleared             // まだクリアしてない
-    ) {
-      ac.state = "ended";
-      applyACFailDamage();
-      acFailFlashTimer = 18; // 0.3秒間赤フラッシュ
-      skillHistory.unshift({text: "AC失敗！", life:180});
-      if(skillHistory.length>5) skillHistory.pop();
-    }
+    // ※ AC失敗判定は updateACOnTime（時間ベース・毎フレーム）に一元化
   });
 }
 
@@ -993,11 +982,12 @@ function updateACOnStrategyChange(nowTime) {
   });
 }
 
-// --- AC進行チェック：時間ベース（スタミナ型はendTime到達時に判定） ---
+// --- AC進行チェック：時間ベース（毎フレーム呼ばれる・全タイプの失敗はここで一元判定） ---
 function updateACOnTime(nowTime) {
   currentSong.acList.forEach(ac => {
     if (ac.state === "active" && nowTime > ac.endTime + settingsTimingOffset) {
       if (ac.type === "stamina") {
+        // スタミナ型：endTime到達時のスタミナ値で成否判定
         if (stamina / STAMINA_MAX >= ac.target / 100) {
           ac.cleared = true;
           ac.state = "cleared";
@@ -1012,15 +1002,13 @@ function updateACOnTime(nowTime) {
           skillHistory.unshift({text: "AC失敗！", life:180});
           if(skillHistory.length>5) skillHistory.pop();
         }
-      } else if (ac.type === "strategy") {
-        // 作戦型は途中クリア済みでなければ失敗
-        if (!ac.cleared) {
-          ac.state = "ended";
-          applyACFailDamage();
-          acFailFlashTimer = 18;
-          skillHistory.unshift({text: "AC失敗！", life:180});
-          if(skillHistory.length>5) skillHistory.pop();
-        }
+      } else if (!ac.cleared) {
+        // score型・SP型・作戦型：クリアしていなければ失敗（赤フラッシュあり）
+        ac.state = "ended";
+        applyACFailDamage();
+        acFailFlashTimer = 18;
+        skillHistory.unshift({text: "AC失敗！", life:180});
+        if(skillHistory.length>5) skillHistory.pop();
       }
     }
   });
