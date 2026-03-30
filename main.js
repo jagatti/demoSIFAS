@@ -889,6 +889,19 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 function cubicBezier(p0,p1,p2,p3,t){const u=1-t;return {x:u*u*u*p0.x+3*u*u*t*p1.x+3*u*t*t*p2.x+t*t*t*p3.x,y:u*u*u*p0.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*p3.y};}
+// ノーツの現在座標を返す。目標フレーム通過後は接線方向(3*(p3-p2))に線形外挿して
+// ノーツが判定〇を通り過ぎて流れていくビジュアルを実現する。
+function getNotePos(n){
+  if(n.t<=n.duration) return cubicBezier(n.path.p0,n.path.p1,n.path.p2,n.path.p3,n.t/n.duration);
+  const p2=n.path.p2, p3=n.path.p3, ov=n.t-n.duration;
+  return {x:p3.x+3*(p3.x-p2.x)*ov/n.duration, y:p3.y+3*(p3.y-p2.y)*ov/n.duration};
+}
+// MISS閾値(21f)に基づくフェードアウト係数 (通過前=1, 通過直後=1→0, 閾値=0)
+const MISS_WINDOW = 21;
+function noteMissAlpha(n){
+  if(n.t<=n.duration) return 1;
+  return Math.max(0, 1 - (n.t - n.duration) / MISS_WINDOW);
+}
 function makePath(side){const target= side==='left'? leftTarget : rightTarget;const startX = side==='left' ? (-R*2-10) : (cvs.width+R*2+10);const start={x:startX, y: target.y - Math.max(180, R*6)};const c1={x: side==='left' ? target.x - Math.max(200,R*6) : target.x + Math.max(200,R*6), y: target.y - Math.max(200,R*6)};const c2={x: side==='left' ? target.x - Math.max(60,R*2)  : target.x + Math.max(60,R*2),  y: target.y - Math.max(40,R*1.3)};const end={x: target.x, y: target.y};return {p0:start,p1:c1,p2:c2,p3:end};}
 // --- spawnNoteにchartIdxを持たせる ---
 function spawnNote(side, chartIdx){
@@ -1085,13 +1098,14 @@ function judgeSingleNoteAt(mx, my, excludeNotes) {
 }
   
 // 判定ラベル・スコア計算
-// timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング)
+// timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング、60fps前提)
+// 各窓は片側: WONDERFUL±15f(±250ms)、GREAT±18f、NICE±20f、BAD±21f
 function calcTapScoreAndLabel(timingError, baseRaw){
   let label = 'WONDERFUL', mult = 1.2;
-  if(timingError<=5)       {label='WONDERFUL';mult=1.2;}
-  else if(timingError<=10) {label='GREAT';    mult=1.1;}
-  else if(timingError<=15) {label='NICE';     mult=1.0;}
-  else if(timingError<=20) {label='BAD';      mult=0.9;}
+  if(timingError<=15)      {label='WONDERFUL';mult=1.2;}
+  else if(timingError<=18) {label='GREAT';    mult=1.1;}
+  else if(timingError<=20) {label='NICE';     mult=1.0;}
+  else if(timingError<=21) {label='BAD';      mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(seededRandom()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
@@ -1467,8 +1481,15 @@ function handlePointer(e){
   }
   let targetNotes = notes.filter(isNotPairNote);
 
+  // 密ノーツ対策: 目標通過済み(n.t>=n.duration)のノーツを優先して選択する。
+  // ノーツ間隔が短い場合にWONDERFUL窓が重なっても、
+  // 「叩こうとしたノーツより次のノーツが先に消費される」誤判定を防ぐ。
+  // 通過済みがなければ全候補から最小誤差を選ぶ（早め叩きも正常に処理される）。
+  const passedNotes = targetNotes.filter(n => n.t >= n.duration);
+  const candidatePool = passedNotes.length > 0 ? passedNotes : targetNotes;
+
   let best = null, bestTimingError = Infinity, bestTarget = null;
-  for(const n of targetNotes){
+  for(const n of candidatePool){
     const target = n.side === 'left' ? leftTarget : (n.side === 'right' ? rightTarget : null);
     if(!target) continue;
     const timingError = Math.abs(n.t - n.duration);
@@ -1561,8 +1582,11 @@ window.addEventListener('keydown', e => {
     }
   }
   const candidates = notes.filter((n, idx) => n.side === tapSide && !pairIndices.has(idx));
+  // 密ノーツ対策: 目標通過済みのノーツを優先（早め叩きはフォールバックで処理される）
+  const passedKbd = candidates.filter(n => n.t >= n.duration);
+  const kbdPool = passedKbd.length > 0 ? passedKbd : candidates;
   let best = null, bestTimingError = Infinity;
-  for(const n of candidates){
+  for(const n of kbdPool){
     const timingError = Math.abs(n.t - n.duration);
     if(timingError < bestTimingError){ bestTimingError = timingError; best = n; }
   }
@@ -1752,7 +1776,7 @@ function update(dt){
     if(acFailFlashTimer > 0) acFailFlashTimer -= dt;
   }
   for(const n of notes) n.t += dt;
-  const keep=[];for(const n of notes){if(n.t<=n.duration+20) keep.push(n);else applyMiss('MISS');}notes=keep;
+  const keep=[];for(const n of notes){if(n.t<=n.duration+MISS_WINDOW) keep.push(n);else applyMiss('MISS');}notes=keep;
   if(gameState==="playing" && chartIndex>=currentSong.notesChart.length && notes.length===0){
     if(waitingClearFrame === null){
       waitingClearFrame = frame;
@@ -1858,8 +1882,10 @@ function drawNotes(){
   // 1. 同時ペアのライン（グラデーション+グロー）
   const pairs = getSimultaneousPairs();
   for (const [n1, n2] of pairs) {
-    const pos1 = cubicBezier(n1.path.p0, n1.path.p1, n1.path.p2, n1.path.p3, Math.min(1, n1.t/n1.duration));
-    const pos2 = cubicBezier(n2.path.p0, n2.path.p1, n2.path.p2, n2.path.p3, Math.min(1, n2.t/n2.duration));
+    const pos1 = getNotePos(n1);
+    const pos2 = getNotePos(n2);
+    const pairAlpha = Math.min(noteMissAlpha(n1), noteMissAlpha(n2));
+    if(pairAlpha <= 0) continue;
 
     // AC判定で各ノーツの色を決める
     const isAc1 = currentSong.acList.some(ac=>ac.state==="cleared"&&n1.chartIdx>=ac.startIdx&&n1.chartIdx<=ac.endIdx);
@@ -1869,7 +1895,7 @@ function drawNotes(){
 
     // グロー（薄く細い発光線）
     ctx.save();
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.22 * pairAlpha;
     ctx.strokeStyle = col1;
     ctx.lineWidth = R * 0.22;
     ctx.lineCap = 'round';
@@ -1890,7 +1916,7 @@ function drawNotes(){
     ctx.strokeStyle = lineGrad;
     ctx.lineWidth = R * 0.09;
     ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 0.85 * pairAlpha;
     ctx.beginPath();
     ctx.moveTo(pos1.x, pos1.y);
     ctx.lineTo(pos2.x, pos2.y);
@@ -1921,12 +1947,15 @@ function drawNotes(){
     let rimColor  = isAcCleared ? "#ffe777" : "#7fffff";
     let dotColor  = isAcCleared ? "#ffe066" : "#1cd9ee";
 
-    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
+    const pos = getNotePos(n);
     const r = R;
+    // 目標通過後はフェードアウト (1→0 over 21 frames)
+    const missAlpha = noteMissAlpha(n);
+    if(missAlpha <= 0) continue;
 
     // --- グロー ---
     ctx.save();
-    ctx.globalAlpha = 0.90;
+    ctx.globalAlpha = 0.90 * missAlpha;
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r * 1.15, 0, Math.PI * 2);
     const glow = ctx.createRadialGradient(pos.x, pos.y, r * 0.6, pos.x, pos.y, r * 1.2);
@@ -1941,7 +1970,7 @@ function drawNotes(){
     ctx.save();
     ctx.strokeStyle = rimColor;
     ctx.lineWidth = r * 0.18;
-    ctx.globalAlpha = 0.82;
+    ctx.globalAlpha = 0.82 * missAlpha;
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r * 0.87, 0, Math.PI * 2);
     ctx.stroke();
@@ -1958,7 +1987,7 @@ function drawNotes(){
     ctx.fillStyle = mainGrad;
     ctx.shadowColor = mainColor;
     ctx.shadowBlur = r * 0.16;
-    ctx.globalAlpha = isAcCleared ? 0.82 : 0.72;
+    ctx.globalAlpha = (isAcCleared ? 0.82 : 0.72) * missAlpha;
     ctx.fill();
     ctx.restore();
 
@@ -1967,7 +1996,7 @@ function drawNotes(){
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, r * 0.22, 0, Math.PI * 2);
     ctx.fillStyle = dotColor;
-    ctx.globalAlpha = 0.88;
+    ctx.globalAlpha = 0.88 * missAlpha;
     ctx.fill();
     ctx.restore();
 
