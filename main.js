@@ -55,6 +55,13 @@ const titleBgm = document.getElementById('titleBgm');
 let settingsVolume      = parseFloat(localStorage.getItem('settings_volume')        ?? '0.1');
 let settingsNoteSpeed   = parseInt(localStorage.getItem('settings_noteSpeed')       ?? '5', 10);
 const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// スマホブラウザ（スタンドアロン=PWAでない）の場合はホーム画面追加メッセージを表示
+const isStandalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+if (isMobile && !isStandalone) {
+  const rotateMsgSub = document.getElementById('rotateMsgSub');
+  if (rotateMsgSub) rotateMsgSub.textContent = 'ホーム画面に追加して起動すると、快適にプレイできます';
+}
 let settingsTimingOffset= parseFloat(localStorage.getItem('settings_timingOffset')  ?? (isMobile ? '0.3' : '0'));
 let settingsSE          = localStorage.getItem('settings_se') !== 'off';
 // 値域クランプ
