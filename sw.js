@@ -1,4 +1,4 @@
-const CACHE_NAME = 'volran-v12';
+const CACHE_NAME = 'volran-v13';
 
 const ASSETS = [
   './',
