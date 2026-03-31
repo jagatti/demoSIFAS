@@ -30,7 +30,7 @@ if (!reseedBtn) {
     reseedBtn.id = 'reseedBtn';
     document.body.appendChild(reseedBtn);
 }
-reseedBtn.textContent = '乱数再現';
+reseedBtn.textContent = '同じ乱数でリトライ';
 reseedBtn.style.position = 'absolute';
 // 画面右下に配置
 reseedBtn.style.bottom = '20px';
@@ -326,7 +326,11 @@ rankingBtn.onclick = async () => {
   } catch (e) {
     clearInterval(loadingInterval);
     if (loadingEl) loadingEl.style.display = 'none';
-    alert('ランキング取得に失敗しました: ' + e.message);
+    const table = rankingModal.querySelector('#rankingTable');
+    if (table) table.innerHTML = `<div style="grid-column:1/-1;color:#f87171;padding:12px 0;text-align:center;">ランキングの取得に失敗しました。<br>しばらくしてから再度お試しください。</div>`;
+    rankingModal.style.display = 'block';
+    const sc = rankingModal.querySelector('#rankingScroll');
+    if (sc) sc.scrollTop = 0;
   }
 };
 
