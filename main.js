@@ -909,6 +909,13 @@ function noteMissAlpha(n){
   if(n.t<=n.duration) return 1;
   return Math.max(0, 1 - (n.t - n.duration) / MISS_WINDOW);
 }
+// ノーツの理想タップBGM時刻（秒）を返す。
+// settingsTimingOffset（ユーザーのタイミング調整）を加算することで、
+// ノーツのスポーン時刻・自動MISS・判定窓がすべて同じオフセット量だけシフトし、
+// タイミング調整の変更が判定に正しく反映される。
+function noteTargetBgmTime(n) {
+  return currentSong.notesChart[n.chartIdx].time + settingsTimingOffset;
+}
 function makePath(side){const target= side==='left'? leftTarget : rightTarget;const startX = side==='left' ? (-R*2-10) : (cvs.width+R*2+10);const start={x:startX, y: target.y - Math.max(180, R*6)};const c1={x: side==='left' ? target.x - Math.max(200,R*6) : target.x + Math.max(200,R*6), y: target.y - Math.max(200,R*6)};const c2={x: side==='left' ? target.x - Math.max(60,R*2)  : target.x + Math.max(60,R*2),  y: target.y - Math.max(40,R*1.3)};const end={x: target.x, y: target.y};return {p0:start,p1:c1,p2:c2,p3:end};}
 // --- spawnNoteにchartIdxを持たせる ---
 function spawnNote(side, chartIdx){
@@ -1081,38 +1088,16 @@ function getSimultaneousPairsInNotes() {
   return pairs;
 }
 
-  // --- ノーツ判定関数(ノーツ参照で直接消す) ---
-function judgeSingleNoteAt(mx, my, excludeNotes) {
-  let bestNote = null, bestDist = Infinity, bestTarget = null;
-  for (const n of notes) {
-    if (excludeNotes && excludeNotes.includes(n)) continue;
-    const target = n.side === 'left' ? leftTarget : rightTarget;
-    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
-    const judgeDist = Math.hypot(pos.x - mx, pos.y - my);
-    if (judgeDist < bestDist) { bestDist = judgeDist; bestNote = n; bestTarget = target; }
-  }
-  if (bestNote) {
-    const baseRaw = calcTapBase();
-    const {points, label, reset} = calcTapScoreAndLabel(bestDist, baseRaw);
-    if (label !== 'MISS') {
-      awardHit(bestTarget, points, label, reset, baseRaw, bestNote.chartIdx);
-      notes = notes.filter(n => n !== bestNote);
-      if (excludeNotes) excludeNotes.push(bestNote);
-      return true;
-    }
-  }
-  return false;
-}
   
 // 判定ラベル・スコア計算
-// timingError = |n.t - n.duration| (フレーム数; 0=完璧タイミング、60fps前提)
-// 各窓: WONDERFUL≤6f、GREAT≤12f、NICE≤15f、BAD≤18f (timingError=絶対偏差フレーム数)
+// timingError = |tapBgmTime - noteTargetBgmTime(n)| (秒; 0=完璧タイミング)
+// 各窓: WONDERFUL≤0.100s、GREAT≤0.200s、NICE≤0.250s、BAD≤0.300s
 function calcTapScoreAndLabel(timingError, baseRaw){
   let label = 'WONDERFUL', mult = 1.2;
-  if(timingError<=6)       {label='WONDERFUL';mult=1.2;}
-  else if(timingError<=12) {label='GREAT';    mult=1.1;}
-  else if(timingError<=15) {label='NICE';     mult=1.0;}
-  else if(timingError<=18) {label='BAD';      mult=0.9;}
+  if(timingError<=0.100)      {label='WONDERFUL';mult=1.2;}
+  else if(timingError<=0.200) {label='GREAT';    mult=1.1;}
+  else if(timingError<=0.250) {label='NICE';     mult=1.0;}
+  else if(timingError<=0.300) {label='BAD';      mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(seededRandom()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
@@ -1253,29 +1238,6 @@ function isInSPSemicircle(mx,my){
   return (dist<=r) && (my<=cy);
 }
   
-// ノーツ判定関数
-function judgeNotesGlobal(mx, my){
-  let bestIdx=-1, bestDist=Infinity, bestTarget=null;
-  for(let i=0;i<notes.length;i++){
-    const n=notes[i];
-    const target=n.side==='left'?leftTarget:rightTarget;
-    const pos=cubicBezier(n.path.p0,n.path.p1,n.path.p2,n.path.p3, Math.min(1,n.t/n.duration));
-    // 判定座標との差で判定（mx, myを使う）
-    const judgeDist=Math.hypot(pos.x-mx, pos.y-my);
-    if(judgeDist<bestDist){bestDist=judgeDist; bestIdx=i; bestTarget=target;}
-  }
-  if(bestIdx>=0){
-    const baseRaw = calcTapBase();
-    const {points,label,reset}=calcTapScoreAndLabel(bestDist, baseRaw);
-    if(label!=='MISS'){
-      awardHit(bestTarget, points, label, reset, baseRaw, notes[bestIdx].chartIdx);
-      notes.splice(bestIdx,1);
-      return true;
-    }else{ return false; }
-  }
-  return false;
-}
-
 // --- SPゲージ使用時のスコア計算 ---
 function tryUseSP(mx,my,bypassPos){
   if(spValue<SP_MAX) return false;
@@ -1456,12 +1418,13 @@ function handlePointer(e){
   }
 
   if (activeNoteFingers >= 2) {
+    const tapBgmTime = getAccurateBgmTime();
     const pairs = getSimultaneousPairsInNotes(); // [[nL, nR], ...]
     // 1タップで消費するのは最もタイミング誤差が小さいペア1つのみ
     // （全ペアをループすると0.2s間隔のペアが一括消費されてしまうため）
     let bestPair = null, bestPairError = Infinity;
     for (const [nL, nR] of pairs) {
-      const pairTimingError = Math.min(Math.abs(nL.t - nL.duration), Math.abs(nR.t - nR.duration));
+      const pairTimingError = Math.min(Math.abs(tapBgmTime - noteTargetBgmTime(nL)), Math.abs(tapBgmTime - noteTargetBgmTime(nR)));
       if (pairTimingError < bestPairError) { bestPairError = pairTimingError; bestPair = [nL, nR]; }
     }
     if (bestPair) {
@@ -1471,12 +1434,12 @@ function handlePointer(e){
         left = nL; right = nR;
       }
       const baseRaw = calcTapBase();
-      const resR = calcTapScoreAndLabel(Math.abs(right.t - right.duration), baseRaw);
+      const resR = calcTapScoreAndLabel(Math.abs(tapBgmTime - noteTargetBgmTime(right)), baseRaw);
       if(resR.label !== 'MISS'){
         awardHit(rightTarget, resR.points, resR.label, resR.reset, baseRaw, right.chartIdx);
         notes = notes.filter(n => n !== right);
       }
-      const resL = calcTapScoreAndLabel(Math.abs(left.t - left.duration), baseRaw);
+      const resL = calcTapScoreAndLabel(Math.abs(tapBgmTime - noteTargetBgmTime(left)), baseRaw);
       if(resL.label !== 'MISS'){
         awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
         notes = notes.filter(n => n !== left);
@@ -1495,18 +1458,19 @@ function handlePointer(e){
   }
   let targetNotes = notes.filter(isNotPairNote);
 
-  // 密ノーツ対策: 目標通過済み(n.t>=n.duration)のノーツを優先して選択する。
+  // 密ノーツ対策: 音声時刻基準で理想タイムを過ぎたノーツを優先して選択する。
   // ノーツ間隔が短い場合にWONDERFUL窓が重なっても、
   // 「叩こうとしたノーツより次のノーツが先に消費される」誤判定を防ぐ。
   // 通過済みがなければ全候補から最小誤差を選ぶ（早め叩きも正常に処理される）。
-  const passedNotes = targetNotes.filter(n => n.t >= n.duration);
+  const tapBgmTime = getAccurateBgmTime();
+  const passedNotes = targetNotes.filter(n => tapBgmTime >= noteTargetBgmTime(n));
   const candidatePool = passedNotes.length > 0 ? passedNotes : targetNotes;
 
   let best = null, bestTimingError = Infinity, bestTarget = null;
   for(const n of candidatePool){
     const target = n.side === 'left' ? leftTarget : (n.side === 'right' ? rightTarget : null);
     if(!target) continue;
-    const timingError = Math.abs(n.t - n.duration);
+    const timingError = Math.abs(tapBgmTime - noteTargetBgmTime(n));
     if(timingError < bestTimingError){ bestTimingError = timingError; best = n; bestTarget = target; }
   }
   if(best){
@@ -1562,10 +1526,11 @@ window.addEventListener('keydown', e => {
 
   if(bothHeld){
     // 両押し → ペアノーツ判定（1キー入力につき最小誤差ペア1つのみ）
+    const kbdTapBgmTime = getAccurateBgmTime();
     const pairs = getSimultaneousPairsInNotes();
     let bestPair = null, bestPairError = Infinity;
     for(const [nL, nR] of pairs){
-      const pairTimingError = Math.min(Math.abs(nL.t - nL.duration), Math.abs(nR.t - nR.duration));
+      const pairTimingError = Math.min(Math.abs(kbdTapBgmTime - noteTargetBgmTime(nL)), Math.abs(kbdTapBgmTime - noteTargetBgmTime(nR)));
       if(pairTimingError < bestPairError){ bestPairError = pairTimingError; bestPair = [nL, nR]; }
     }
     if(bestPair){
@@ -1573,12 +1538,12 @@ window.addEventListener('keydown', e => {
       const left  = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nL : nR;
       const right = (currentSong.notesChart[nL.chartIdx]?.side === 'left') ? nR : nL;
       const baseRaw = calcTapBase();
-      const resR = calcTapScoreAndLabel(Math.abs(right.t - right.duration), baseRaw);
+      const resR = calcTapScoreAndLabel(Math.abs(kbdTapBgmTime - noteTargetBgmTime(right)), baseRaw);
       if(resR.label !== 'MISS'){
         awardHit(rightTarget, resR.points, resR.label, resR.reset, baseRaw, right.chartIdx);
         notes = notes.filter(n => n !== right);
       }
-      const resL = calcTapScoreAndLabel(Math.abs(left.t - left.duration), baseRaw);
+      const resL = calcTapScoreAndLabel(Math.abs(kbdTapBgmTime - noteTargetBgmTime(left)), baseRaw);
       if(resL.label !== 'MISS'){
         awardHit(leftTarget, resL.points, resL.label, resL.reset, baseRaw, left.chartIdx);
         notes = notes.filter(n => n !== left);
@@ -1602,12 +1567,13 @@ window.addEventListener('keydown', e => {
     }
   }
   const candidates = notes.filter((n, idx) => n.side === tapSide && !pairIndices.has(idx));
-  // 密ノーツ対策: 目標通過済みのノーツを優先（早め叩きはフォールバックで処理される）
-  const passedKbd = candidates.filter(n => n.t >= n.duration);
+  // 密ノーツ対策: 音声時刻基準で理想タイムを過ぎたノーツを優先（早め叩きはフォールバックで処理される）
+  const kbdTapBgmTime = getAccurateBgmTime();
+  const passedKbd = candidates.filter(n => kbdTapBgmTime >= noteTargetBgmTime(n));
   const kbdPool = passedKbd.length > 0 ? passedKbd : candidates;
   let best = null, bestTimingError = Infinity;
   for(const n of kbdPool){
-    const timingError = Math.abs(n.t - n.duration);
+    const timingError = Math.abs(kbdTapBgmTime - noteTargetBgmTime(n));
     if(timingError < bestTimingError){ bestTimingError = timingError; best = n; }
   }
   if(best){
