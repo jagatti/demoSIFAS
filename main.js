@@ -909,7 +909,10 @@ function noteMissAlpha(n){
   if(n.t<=n.duration) return 1;
   return Math.max(0, 1 - (n.t - n.duration) / MISS_WINDOW);
 }
-// ノーツの理想タップBGM時刻（秒）を返す（settingsTimingOffsetを含む）
+// ノーツの理想タップBGM時刻（秒）を返す。
+// settingsTimingOffset（ユーザーのタイミング調整）を加算することで、
+// ノーツのスポーン時刻・自動MISS・判定窓がすべて同じオフセット量だけシフトし、
+// タイミング調整の変更が判定に正しく反映される。
 function noteTargetBgmTime(n) {
   return currentSong.notesChart[n.chartIdx].time + settingsTimingOffset;
 }
@@ -1085,32 +1088,10 @@ function getSimultaneousPairsInNotes() {
   return pairs;
 }
 
-  // --- ノーツ判定関数(ノーツ参照で直接消す) ---
-function judgeSingleNoteAt(mx, my, excludeNotes) {
-  let bestNote = null, bestDist = Infinity, bestTarget = null;
-  for (const n of notes) {
-    if (excludeNotes && excludeNotes.includes(n)) continue;
-    const target = n.side === 'left' ? leftTarget : rightTarget;
-    const pos = cubicBezier(n.path.p0, n.path.p1, n.path.p2, n.path.p3, Math.min(1, n.t/n.duration));
-    const judgeDist = Math.hypot(pos.x - mx, pos.y - my);
-    if (judgeDist < bestDist) { bestDist = judgeDist; bestNote = n; bestTarget = target; }
-  }
-  if (bestNote) {
-    const baseRaw = calcTapBase();
-    const {points, label, reset} = calcTapScoreAndLabel(bestDist, baseRaw);
-    if (label !== 'MISS') {
-      awardHit(bestTarget, points, label, reset, baseRaw, bestNote.chartIdx);
-      notes = notes.filter(n => n !== bestNote);
-      if (excludeNotes) excludeNotes.push(bestNote);
-      return true;
-    }
-  }
-  return false;
-}
   
 // 判定ラベル・スコア計算
 // timingError = |tapBgmTime - noteTargetBgmTime(n)| (秒; 0=完璧タイミング)
-// 各窓: WONDERFUL≤100ms、GREAT≤200ms、NICE≤250ms、BAD≤300ms
+// 各窓: WONDERFUL≤0.100s、GREAT≤0.200s、NICE≤0.250s、BAD≤0.300s
 function calcTapScoreAndLabel(timingError, baseRaw){
   let label = 'WONDERFUL', mult = 1.2;
   if(timingError<=0.100)      {label='WONDERFUL';mult=1.2;}
@@ -1257,29 +1238,6 @@ function isInSPSemicircle(mx,my){
   return (dist<=r) && (my<=cy);
 }
   
-// ノーツ判定関数
-function judgeNotesGlobal(mx, my){
-  let bestIdx=-1, bestDist=Infinity, bestTarget=null;
-  for(let i=0;i<notes.length;i++){
-    const n=notes[i];
-    const target=n.side==='left'?leftTarget:rightTarget;
-    const pos=cubicBezier(n.path.p0,n.path.p1,n.path.p2,n.path.p3, Math.min(1,n.t/n.duration));
-    // 判定座標との差で判定（mx, myを使う）
-    const judgeDist=Math.hypot(pos.x-mx, pos.y-my);
-    if(judgeDist<bestDist){bestDist=judgeDist; bestIdx=i; bestTarget=target;}
-  }
-  if(bestIdx>=0){
-    const baseRaw = calcTapBase();
-    const {points,label,reset}=calcTapScoreAndLabel(bestDist, baseRaw);
-    if(label!=='MISS'){
-      awardHit(bestTarget, points, label, reset, baseRaw, notes[bestIdx].chartIdx);
-      notes.splice(bestIdx,1);
-      return true;
-    }else{ return false; }
-  }
-  return false;
-}
-
 // --- SPゲージ使用時のスコア計算 ---
 function tryUseSP(mx,my,bypassPos){
   if(spValue<SP_MAX) return false;
