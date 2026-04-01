@@ -1297,12 +1297,17 @@ function handlePointer(e){
     if (pauseResumeBtnBounds &&
         tx >= pauseResumeBtnBounds.x && tx <= pauseResumeBtnBounds.x + pauseResumeBtnBounds.w &&
         ty >= pauseResumeBtnBounds.y && ty <= pauseResumeBtnBounds.y + pauseResumeBtnBounds.h) {
-      isPaused = false;
+      
       const resumeOffset = bgm.currentTime;
       bgm.play().then(() => {
         bgmSyncPoint = audioContext ? { audioCtxTime: audioContext.currentTime, bgmOffset: resumeOffset } : null;
-      }).catch(() => {});
-      pauseBtn.style.display = 'block';
+         isPaused = false;
+        pauseBtn.style.display = 'block';
+      }).catch(() => {
+        bgmSyncPoint = null;
+        isPaused = false;
+        pauseBtn.style.display = 'block';
+      });
       return;
     }
 
