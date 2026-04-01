@@ -3,6 +3,22 @@ import { SONGS } from './songs.js';
 // --- GASエンドポイント ---
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz2gsX2XXdV0OOvHtPF0AsHkTBvrCQ_8_1zYxVQ0bki_CoAlFy25QbsEryqTe-dZJJu/exec";
 
+// --- HMAC秘密鍵---
+const HMAC_SECRET = "volran-ranking-secret-2025";
+
+// --- HMAC-SHA256 計算（Web Crypto API） ---
+async function computeHmac(message, secret) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false, ["sign"]
+  );
+  const buf = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export const MAX_NAME_LENGTH = 10;
 
 // --- JSONP ---
@@ -116,17 +132,33 @@ export async function submitScore(name, score, seed, songId) {
   const trimmedName = String(name ?? '').trim().slice(0, MAX_NAME_LENGTH);
   if (!trimmedName) throw new Error('名前が無効です');
   const scoreInt = Math.trunc(Number(score));
-  if (!Number.isFinite(scoreInt) || scoreInt < 0 || scoreInt > 99_999_999) {
+  if (!Number.isFinite(scoreInt) || scoreInt < 0 || scoreInt > 66_666_666) {
     throw new Error('スコアが無効です');
   }
 
+  // --- スコアチェック ---
+  const song = SONGS.find(s => s.id === songId);
+  if (song) {
+    const maxTap = song.notesChart.length * 50000;
+    const maxAC  = song.acList.reduce((sum, ac) => sum + (ac.rewardScore || 0), 0);
+    const maxSP  = 250000 * 20; // SP最大20回発動想定
+    const theoreticalMax = (maxTap + maxAC + maxSP) * 2;
+    if (scoreInt > theoreticalMax) throw new Error('スコアが無効です');
+  }
+
   const taggedName = trimmedName + ` [${songId}]`;
+
+  // --- HMAC-SHA256 署名（改ざん抑止） ---
+  const message = `${taggedName}|${scoreInt}|${seed}|${songId}`;
+  const sig = await computeHmac(message, HMAC_SECRET);
+
   const url =
     `${GAS_ENDPOINT}?action=submit` +
     `&name=${encodeURIComponent(taggedName)}` +
     `&score=${encodeURIComponent(scoreInt)}` +
     `&seed=${encodeURIComponent(seed)}` +
-    `&ua=${encodeURIComponent(navigator.userAgent)}`;
+    `&ua=${encodeURIComponent(navigator.userAgent)}` +
+    `&sig=${encodeURIComponent(sig)}`;
   return await jsonp(url);
 }
 
