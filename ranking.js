@@ -3,6 +3,23 @@ import { SONGS } from './songs.js';
 // --- GASエンドポイント ---
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz2gsX2XXdV0OOvHtPF0AsHkTBvrCQ_8_1zYxVQ0bki_CoAlFy25QbsEryqTe-dZJJu/exec";
 
+// --- HMAC秘密鍵（クライアント埋め込みのため完全秘匿は不可だが、自動化スクリプトへの抑止力として機能する） ---
+const HMAC_SECRET = "volran-ranking-secret-2025";
+
+// --- HMAC-SHA256 計算（Web Crypto API） ---
+// 将来的にGAS側でも sig を検証することで、より強固な改ざん防止が実現できる
+async function computeHmac(message, secret) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false, ["sign"]
+  );
+  const buf = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export const MAX_NAME_LENGTH = 10;
 
 // --- JSONP ---
@@ -120,13 +137,29 @@ export async function submitScore(name, score, seed, songId) {
     throw new Error('スコアが無効です');
   }
 
+  // --- 理論最大スコアチェック ---
+  const song = SONGS.find(s => s.id === songId);
+  if (song) {
+    const maxTap = song.notesChart.length * 50000;
+    const maxAC  = song.acList.reduce((sum, ac) => sum + (ac.rewardScore || 0), 0);
+    const maxSP  = 250000 * 10; // SP最大10回発動想定
+    const theoreticalMax = (maxTap + maxAC + maxSP) * 2; // 安全マージン×2
+    if (scoreInt > theoreticalMax) throw new Error('スコアが無効です');
+  }
+
   const taggedName = trimmedName + ` [${songId}]`;
+
+  // --- HMAC-SHA256 署名（改ざん抑止） ---
+  const message = `${taggedName}|${scoreInt}|${seed}|${songId}`;
+  const sig = await computeHmac(message, HMAC_SECRET);
+
   const url =
     `${GAS_ENDPOINT}?action=submit` +
     `&name=${encodeURIComponent(taggedName)}` +
     `&score=${encodeURIComponent(scoreInt)}` +
     `&seed=${encodeURIComponent(seed)}` +
-    `&ua=${encodeURIComponent(navigator.userAgent)}`;
+    `&ua=${encodeURIComponent(navigator.userAgent)}` +
+    `&sig=${encodeURIComponent(sig)}`;
   return await jsonp(url);
 }
 
