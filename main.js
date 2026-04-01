@@ -132,7 +132,7 @@ const TUTORIAL_PAGES = [
   {
     title: '✌️ 同時押し（ペアノーツ）',
     body: `左右に同時に出るノーツは<br><b>2本指で同時タップ</b>すると両方判定！<br><br>
-           片方だけ叩くと、もう片方はMISSになるので注意。<br><br>
+           片方だけ叩くと、MISSになるので注意。<br><br>
            <b>【PC】</b>　<kbd>Z</kbd>＋<kbd>X</kbd>を同時押し`
   },
   {
@@ -1091,13 +1091,13 @@ function getSimultaneousPairsInNotes() {
   
 // 判定ラベル・スコア計算
 // timingError = |tapBgmTime - noteTargetBgmTime(n)| (秒; 0=完璧タイミング)
-// 各窓: WONDERFUL≤0.100s、GREAT≤0.200s、NICE≤0.250s、BAD≤0.300s
+// 各窓: WONDERFUL≤0.100s、GREAT≤0.150s、NICE≤0.180s、BAD≤0.200s
 function calcTapScoreAndLabel(timingError, baseRaw){
   let label = 'WONDERFUL', mult = 1.2;
   if(timingError<=0.100)      {label='WONDERFUL';mult=1.2;}
-  else if(timingError<=0.200) {label='GREAT';    mult=1.1;}
-  else if(timingError<=0.250) {label='NICE';     mult=1.0;}
-  else if(timingError<=0.300) {label='BAD';      mult=0.9;}
+  else if(timingError<=0.150) {label='GREAT';    mult=1.1;}
+  else if(timingError<=0.180) {label='NICE';     mult=1.0;}
+  else if(timingError<=0.200) {label='BAD';      mult=0.9;}
   else {return {points:0,label:'MISS',reset:true};}
   let points=Math.floor(baseRaw*mult);
   if(seededRandom()<0.3){ points=Math.floor(points*1.5); label='CRITICAL'; }
@@ -2260,8 +2260,8 @@ function drawPopups(){
       let fontSize = Math.max(28, Math.round(R*1.2), Math.round(cvs.height*0.055));
       if(p.text==='CRITICAL'){
         ctx.fillStyle='#FFD700'; ctx.font=`bold ${fontSize}px system-ui`; ctx.textAlign='center';
-        ctx.fillText('★', p.x-fontSize*2, p.y);
-        ctx.fillText('★', p.x+fontSize*2, p.y);
+        ctx.fillText('☆', p.x-fontSize*2, p.y);
+        ctx.fillText('☆', p.x+fontSize*2, p.y);
         strokeRainbowText('CRITICAL', p.x, p.y, `bold ${fontSize}px system-ui`);
       }else if(p.text==='WONDERFUL'){
         strokeRainbowText('WONDERFUL', p.x, p.y, `bold ${fontSize}px system-ui`);
@@ -2855,7 +2855,7 @@ function render(){
     ctx.font = 'bold 15px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.textAlign = 'center';
-    ctx.fillText('📊 Avg: ' + avg.toLocaleString('ja-JP'), cvs.width / 2, 28);
+    ctx.fillText('📊 平均スコア: ' + avg.toLocaleString('ja-JP'), cvs.width / 2, 28);
 
     // --- 左下：タイトルへ戻るボタン ---
     const backBtnX = 20;
@@ -2872,17 +2872,17 @@ function render(){
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('《 戻る', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2);
+    ctx.fillText('《 戻る ', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2);
     ctx.textBaseline = 'alphabetic';
     ctx.restore();
 
     return;
   }
 
-  // 背景画像（30%不透明度）をcanvas全体に描画
+  // 背景画像20%不透明度）をcanvas全体に描画
   if(bgimg.complete && bgimg.naturalWidth > 0) {
     ctx.save();
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.2;
     ctx.drawImage(bgimg, 0, 0, cvs.width, cvs.height);
     ctx.globalAlpha = 1;
     ctx.restore();
