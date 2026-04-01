@@ -303,7 +303,7 @@ rankingBtn.onclick = async () => {
     document.body.appendChild(loadingEl);
   }
   let dots = 1;
-  loadingEl.textContent = 'Loading.';
+  loadingEl.textContent = '接続中.';
   loadingEl.style.display = 'block';
   const loadingInterval = setInterval(() => {
     dots = (dots % 3) + 1;
@@ -319,7 +319,7 @@ rankingBtn.onclick = async () => {
     renderRankingTable(rows, rankingModal);
 
     const titleEl = rankingModal.querySelector('#rankingTitle');
-    if (titleEl) titleEl.textContent = '全体ランキング';
+    if (titleEl) titleEl.textContent = '全体ランキング　　4/1 18:00 ～ 4/5 23:59（予定）';
     rankingModal.style.display = 'block';
     const sc = rankingModal.querySelector('#rankingScroll');
     if (sc) sc.scrollTop = 0;
@@ -613,7 +613,7 @@ function showPlayerNameModal(onSuccess) {
   const handleSubmit = async () => {
     const name = input.value.trim().slice(0, MAX_NAME_LENGTH);
     if (!name) {
-      errorEl.textContent = '名前を入力してください。';
+      errorEl.textContent = '名前を入力してください';
       return;
     }
     submitBtn.disabled = true;
@@ -626,7 +626,7 @@ function showPlayerNameModal(onSuccess) {
     }
     submitBtn.disabled = false;
     if (taken) {
-      errorEl.textContent = '既に使用されています。';
+      errorEl.textContent = '既に使用されています';
       return;
     }
     localStorage.setItem('player_name', name);
