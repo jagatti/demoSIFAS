@@ -307,7 +307,7 @@ rankingBtn.onclick = async () => {
   loadingEl.style.display = 'block';
   const loadingInterval = setInterval(() => {
     dots = (dots % 3) + 1;
-    loadingEl.textContent = 'Loading' + '.'.repeat(dots);
+    loadingEl.textContent = '接続中' + '.'.repeat(dots);
   }, 400);
   try {
     const res = await fetchTopScores();
