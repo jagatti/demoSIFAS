@@ -1670,6 +1670,14 @@ async function startGame(seed) {
 }
 
 startBtn.onclick = function() {
+  // --- 公開終了メッセージを表示 ---
+  const endMsg = document.getElementById('endOfServiceMsg');
+  endMsg.style.display = 'flex';
+  startBtn.style.display = 'none';
+  try { titleBgm.pause(); } catch(e) {}
+  return;
+
+  // --- 以下は公開終了前の元コード（残しています） ---
   if(gameState === "init"){
     // タイトル画面 → 曲選択へ
     const playerName = localStorage.getItem('player_name');
