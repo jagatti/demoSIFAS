@@ -1,3 +1,7 @@
+// Original content of main.js with the new startBtn.onclick function
+
+// ... (original content above line 1666)
+
 startBtn.onclick = function() {
   // --- サービス終了告知モーダル ---
   let closureModal = document.getElementById('closureModal');
@@ -18,15 +22,15 @@ startBtn.onclick = function() {
     closureModal.style.textAlign = 'center';
     closureModal.style.boxShadow = '0 8px 40px rgba(0,0,0,0.75)';
     closureModal.innerHTML = `
-      <div style="font-size:2rem;margin-bottom:12px;">🌸</div>
-      <div style="font-weight:800;font-size:15px;line-height:1.8;letter-spacing:0.04em;">
-        4月5日23:59にて公開を終了しました。<br>
+      &lt;div style="font-size:2rem;margin-bottom:12px;"&gt;🌸&lt;/div&gt;
+      &lt;div style="font-weight:800;font-size:15px;line-height:1.8;letter-spacing:0.04em;"&gt;
+        4月5日23:59にて公開を終了しました。&lt;br&gt;
         プレイしていただきありがとうございました！
-      </div>
-      <button id="closureCloseBtn"
-        style="margin-top:20px;padding:8px 28px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">
+      &lt;/div&gt;
+      &lt;button id="closureCloseBtn"
+        style="margin-top:20px;padding:8px 28px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;"&gt;
         とじる
-      </button>
+      &lt;/button&gt;
     `;
     document.body.appendChild(closureModal);
     closureModal.querySelector('#closureCloseBtn').onclick = () => {
@@ -35,3 +39,5 @@ startBtn.onclick = function() {
   }
   closureModal.style.display = 'block';
 };
+
+// ... (original content below line 1685)
